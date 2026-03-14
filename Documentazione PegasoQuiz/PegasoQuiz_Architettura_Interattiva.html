@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PegasoQuiz — Architettura Interattiva</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap');
+
+  :root {
+    --bg:        #0d1117;
+    --surface:   #161b22;
+    --surface2:  #1c2330;
+    --border:    #30363d;
+    --border2:   #3d444d;
+    --text:      #e6edf3;
+    --muted:     #7d8590;
+    --purple:    #a78bfa;
+    --purple-bg: #1a1230;
+    --purple-b:  #6d28d9;
+    --teal:      #2dd4bf;
+    --teal-bg:   #0d1f1e;
+    --teal-b:    #0f766e;
+    --coral:     #fb923c;
+    --coral-bg:  #1f1108;
+    --coral-b:   #c2410c;
+    --amber:     #fbbf24;
+    --amber-bg:  #1c1500;
+    --amber-b:   #b45309;
+    --blue:      #60a5fa;
+    --blue-bg:   #0a1628;
+    --blue-b:    #1d4ed8;
+    --green:     #4ade80;
+    --green-bg:  #071811;
+    --green-b:   #15803d;
+    --gray:      #94a3b8;
+    --gray-bg:   #111827;
+    --gray-b:    #374151;
+    --accent:    #f0a500;
+    --radius:    6px;
+    --mono:      'IBM Plex Mono', monospace;
+    --sans:      'IBM Plex Sans', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 28px 40px 24px;
+    display: flex;
+    align-items: baseline;
+    gap: 20px;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 100;
+  }
+  header h1 {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+  }
+  header span {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+  .tab-bar {
+    margin-left: auto;
+    display: flex;
+    gap: 4px;
+  }
+  .tab {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .tab.active, .tab:hover {
+    background: var(--surface2);
+    color: var(--text);
+    border-color: var(--border2);
+  }
+  .tab.active { color: var(--accent); border-color: var(--accent); }
+
+  /* ── Layout ── */
+  main { display: flex; height: calc(100vh - 69px); overflow: hidden; }
+
+  /* ── Diagram panel ── */
+  #diagram-panel {
+    flex: 1;
+    overflow-y: auto;
+    padding: 32px 40px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  /* ── Detail panel ── */
+  #detail-panel {
+    width: 380px;
+    min-width: 320px;
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: width 0.25s ease;
+  }
+  #detail-panel.collapsed { width: 0; min-width: 0; border: none; }
+
+  #detail-header {
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 52px;
+  }
+  #detail-badge {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+    transition: background 0.2s;
+  }
+  #detail-title {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    flex: 1;
+  }
+  #detail-close {
+    background: none; border: none;
+    color: var(--muted); cursor: pointer;
+    font-size: 16px; padding: 2px 6px;
+    border-radius: 4px;
+    line-height: 1;
+  }
+  #detail-close:hover { background: var(--surface2); color: var(--text); }
+
+  #detail-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  #detail-body h3 {
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin: 20px 0 8px;
+  }
+  #detail-body h3:first-child { margin-top: 0; }
+  #detail-body p {
+    color: #c9d1d9;
+    font-size: 13px;
+    line-height: 1.7;
+    margin-bottom: 10px;
+  }
+  #detail-body ul {
+    padding-left: 0;
+    list-style: none;
+    margin-bottom: 10px;
+  }
+  #detail-body li {
+    color: #c9d1d9;
+    font-size: 12px;
+    line-height: 1.6;
+    padding: 3px 0 3px 16px;
+    position: relative;
+  }
+  #detail-body li::before {
+    content: '›';
+    position: absolute;
+    left: 4px;
+    color: var(--muted);
+  }
+  #detail-body code {
+    font-family: var(--mono);
+    font-size: 11px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 5px;
+    color: var(--teal);
+  }
+  .detail-tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    border: 1px solid;
+    margin: 2px 3px 2px 0;
+  }
+  .field-row {
+    display: flex;
+    gap: 8px;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+    align-items: baseline;
+  }
+  .field-row:last-child { border: none; }
+  .field-name { font-family: var(--mono); font-size: 11px; color: var(--teal); min-width: 120px; }
+  .field-type { font-family: var(--mono); font-size: 11px; color: var(--amber); min-width: 90px; }
+  .field-desc { font-size: 11px; color: var(--muted); flex: 1; }
+
+  /* ── Empty state ── */
+  #empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 10px;
+    color: var(--muted);
+    text-align: center;
+    padding: 20px;
+  }
+  #empty-state .arrow { font-size: 28px; opacity: 0.3; }
+  #empty-state p { font-size: 12px; max-width: 200px; line-height: 1.5; }
+
+  /* ── Section labels ── */
+  .section-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    margin: 28px 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .section-label:first-child { margin-top: 0; }
+
+  /* ── Blocks ── */
+  .block {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, transform 0.1s;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+  .block::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+  }
+  .block:hover { transform: translateX(2px); }
+  .block.active { outline: 1px solid; outline-offset: -1px; }
+
+  .block-header {
+    padding: 10px 14px 10px 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .block-name {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    flex: 1;
+  }
+  .block-sub {
+    font-size: 11px;
+    color: var(--muted);
+    padding: 0 18px 10px;
+    font-family: var(--mono);
+    margin-top: -4px;
+  }
+  .block-arrow {
+    font-size: 10px;
+    color: var(--muted);
+    transition: transform 0.15s;
+  }
+  .block.active .block-arrow { transform: rotate(90deg); color: var(--text); }
+
+  /* color variants */
+  .c-purple { --c: var(--purple); --bg2: var(--purple-bg); --b: var(--purple-b); }
+  .c-teal    { --c: var(--teal);   --bg2: var(--teal-bg);   --b: var(--teal-b);   }
+  .c-coral   { --c: var(--coral);  --bg2: var(--coral-bg);  --b: var(--coral-b);  }
+  .c-amber   { --c: var(--amber);  --bg2: var(--amber-bg);  --b: var(--amber-b);  }
+  .c-blue    { --c: var(--blue);   --bg2: var(--blue-bg);   --b: var(--blue-b);   }
+  .c-green   { --c: var(--green);  --bg2: var(--green-bg);  --b: var(--green-b);  }
+  .c-gray    { --c: var(--gray);   --bg2: var(--gray-bg);   --b: var(--gray-b);   }
+
+  .block { border-color: var(--b, var(--border)); background: var(--bg2, var(--surface)); }
+  .block::before { background: var(--c, var(--border)); }
+  .block:hover   { background: color-mix(in srgb, var(--bg2, var(--surface)) 85%, var(--c) 15%); border-color: var(--c, var(--border2)); }
+  .block.active  { background: color-mix(in srgb, var(--bg2, var(--surface)) 75%, var(--c) 25%); border-color: var(--c); outline-color: var(--c); }
+  .block-name    { color: var(--c, var(--text)); }
+
+  /* ── Grid rows (workers, mixins) ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 6px; }
+  .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; margin-bottom: 6px; }
+  .grid-2 .block, .grid-3 .block, .grid-4 .block { margin-bottom: 0; }
+
+  /* ── Arrow connectors ── */
+  .arrow-down {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 6px 0;
+    color: var(--muted);
+    font-size: 11px;
+    font-family: var(--mono);
+  }
+  .arrow-down::before, .arrow-down::after {
+    content: '';
+    height: 1px;
+    flex: 1;
+    background: var(--border);
+  }
+
+  /* ── Data model tab: table ── */
+  .dm-section { margin-bottom: 28px; }
+  .dm-section h2 {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  table.fields {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+  table.fields th {
+    text-align: left;
+    color: var(--muted);
+    font-weight: 500;
+    padding: 5px 8px;
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 10px;
+  }
+  table.fields td {
+    padding: 5px 8px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.fields tr:last-child td { border: none; }
+  table.fields tr:hover td { background: var(--surface2); }
+  .td-name  { color: var(--teal); }
+  .td-type  { color: var(--amber); white-space: nowrap; }
+  .td-alias { color: var(--purple); }
+  .td-desc  { color: var(--muted); }
+
+  /* ── Keys panel ── */
+  .key-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    font-family: var(--mono);
+    font-size: 11px;
+    margin-bottom: 8px;
+  }
+  .key-box .key-label { color: var(--muted); margin-bottom: 4px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+  .key-box .key-formula { color: var(--teal); }
+
+  /* ── Supabase tables ── */
+  .db-table {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+  .db-table-header {
+    background: var(--blue-bg);
+    border-bottom: 1px solid var(--blue-b);
+    padding: 8px 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--blue);
+  }
+
+  /* ── Pulse on load ── */
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .block { animation: fadeIn 0.3s ease both; }
+  .block:nth-child(1) { animation-delay: 0.02s; }
+  .block:nth-child(2) { animation-delay: 0.05s; }
+  .block:nth-child(3) { animation-delay: 0.08s; }
+  .block:nth-child(4) { animation-delay: 0.11s; }
+
+  /* ── Legend ── */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 28px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>PegasoQuiz</h1>
+  <span>v3.1 · architettura interattiva · offline</span>
+  <div class="tab-bar">
+    <button class="tab active" onclick="showTab('arch')">Schema classi</button>
+    <button class="tab" onclick="showTab('data')">Modello dati</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       PANNELLO SINISTRA: diagramma
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="diagram-panel">
+
+    <!-- ── TAB: ARCHITETTURA ── -->
+    <div id="tab-arch">
+
+      <div class="section-label">UI Layer — QML</div>
+
+      <div class="block c-purple" id="b-appwindow" onclick="select('appwindow')">
+        <div class="block-header">
+          <span class="block-name">ApplicationWindow</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">Main.qml</span>
+          <span class="block-arrow">›</span>
+        </div>
+        <div class="block-sub">QML root · stato globale · layout · orchestratore segnali · FancyButton</div>
+      </div>
+
+      <div class="arrow-down">signals / @Slot (quizJson, isLoading, poolUsed …)</div>
+
+      <div class="section-label">Bridge Layer</div>
+
+      <div class="block c-blue" id="b-bridge" onclick="select('bridge')">
+        <div class="block-header">
+          <span class="block-name">QuizNovaBridge</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">QObject · main_quiznova.py</span>
+          <span class="block-arrow">›</span>
+        </div>
+        <div class="block-sub">@Property · @Slot · _active_workers · _set_loading() · shutdown()</div>
+      </div>
+
+      <div class="section-label">Worker Thread Pool — QThread</div>
+
+      <div class="grid-3">
+        <div class="block c-teal" id="b-loadfile" onclick="select('loadfile')">
+          <div class="block-header"><span class="block-name">LoadFileWorker</span><span class="block-arrow">›</span></div>
+          <div class="block-sub">JSON da filesystem</div>
+        </div>
+        <div class="block c-teal" id="b-loadurl" onclick="select('loadurl')">
+          <div class="block-header"><span class="block-name">LoadUrlWorker</span><span class="block-arrow">›</span></div>
+          <div class="block-sub">JSON da HTTP/S</div>
+        </div>
+        <div class="block c-teal" id="b-loadpdf" onclick="select('loadpdf')">
+          <div class="block-header"><span class="block-name">LoadPdfWorker</span><span class="block-arrow">›</span></div>
+          <div class="block-sub">PDF + OpenAI vision · progress signal</div>
+        </div>
+      </div>
+      <div class="grid-3">
+        <div class="block c-teal" id="b-correct" onclick="select('correct')">
+          <div class="block-header"><span class="block-name">CorrectAllWorker</span><span class="block-arrow">›</span></div>
+          <div class="block-sub">scoring + cloud write</div>
+        </div>
+        <div class="block c-teal" id="b-cloudlogin" onclick="select('cloudlogin')">
+          <div class="block-header"><span class="block-name">CloudLoginWorker</span><span class="block-arrow">›</span></div>
+          <div class="block-sub">Supabase auth JWT</div>
+        </div>
+        <div class="block c-teal" id="b-ai" onclick="select('ai')">
+          <div class="block-header"><span class="block-name">AiWorker</span><span class="block-arrow">›</span></div>
+          <div class="block-sub">GPT-4o-mini explain</div>
+        </div>
+      </div>
+      <div class="grid-3">
+        <div class="block c-teal" id="b-cloudentries" onclick="select('cloudentries')">
+          <div class="block-header"><span class="block-name">CloudEntriesWorker</span><span class="block-arrow">›</span></div>
+          <div class="block-sub">fetch manifest GitHub</div>
+        </div>
+        <div class="block c-teal" id="b-cloudload" onclick="select('cloudload')">
+          <div class="block-header"><span class="block-name">CloudLoadSelectedWorker</span><span class="block-arrow">›</span></div>
+          <div class="block-sub">download JSON cloud</div>
+        </div>
+        <div class="block c-teal" id="b-wrongquiz" onclick="select('wrongquiz')">
+          <div class="block-header"><span class="block-name">GenerateWrongQuizWorker</span><span class="block-arrow">›</span></div>
+          <div class="block-sub">errori cloud + quiz</div>
+        </div>
+      </div>
+
+      <div class="arrow-down">chiamate sincrone al backend</div>
+
+      <div class="section-label">Backend Layer — Facade</div>
+
+      <div class="block c-coral" id="b-backend" onclick="select('backend')">
+        <div class="block-header">
+          <span class="block-name">QuizNovaBackend</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">quiznova_backend.py · facade pubblica</span>
+          <span class="block-arrow">›</span>
+        </div>
+        <div class="block-sub">eredita da _StorageManager, _NetMixin, _CloudMixin, _QuizEngine · coordina tutti i mixin</div>
+      </div>
+
+      <div class="section-label">Mixin Python (ereditarietà multipla)</div>
+
+      <div class="grid-4">
+        <div class="block c-amber" id="b-storage" onclick="select('storage')">
+          <div class="block-header"><span class="block-name">_StorageManager</span><span class="block-arrow">›</span></div>
+          <div class="block-sub">state.json · prefs · threading.Lock</div>
+        </div>
+        <div class="block c-amber" id="b-net" onclick="select('net')">
+          <div class="block-header"><span class="block-name">_NetMixin</span><span class="block-arrow">›</span></div>
+          <div class="block-sub">SSL doppio fallback sistema → certifi</div>
+        </div>
+        <div class="block c-amber" id="b-cloud" onclick="select('cloud')">
+          <div class="block-header"><span class="block-name">_CloudMixin</span><span class="block-arrow">›</span></div>
+          <div class="block-sub">Supabase REST: auth, stats, wrong, profiles</div>
+        </div>
+        <div class="block c-amber" id="b-engine" onclick="select('engine')">
+          <div class="block-header"><span class="block-name">_QuizEngine</span><span class="block-arrow">›</span></div>
+          <div class="block-sub">hash · sort · qid · chapter key</div>
+        </div>
+      </div>
+
+      <div class="section-label">Moduli Esterni</div>
+
+      <div class="grid-2">
+        <div class="block c-green" id="b-pdfgen" onclick="select('pdfgen')">
+          <div class="block-header"><span class="block-name">pdf_quiz_generator.py</span><span class="block-arrow">›</span></div>
+          <div class="block-sub">pipeline PDF → Quiz in 8 fasi · pypdf · Pillow · OpenAI vision</div>
+        </div>
+        <div class="block c-gray" id="b-crypto" onclick="select('crypto')">
+          <div class="block-header"><span class="block-name">copyright_crypto.py</span><span class="block-arrow">›</span></div>
+          <div class="block-sub">XOR-stream SHA-256 · HMAC-SHA-256 manifest · timing-safe</div>
+        </div>
+      </div>
+
+      <div class="section-label">Storage e Servizi Esterni</div>
+
+      <div class="grid-4">
+        <div class="block c-gray" id="b-statefile" onclick="select('statefile')">
+          <div class="block-header"><span class="block-name">~/.quiznova/</span><span class="block-arrow">›</span></div>
+          <div class="block-sub">state.json · .env</div>
+        </div>
+        <div class="block c-blue" id="b-supabase" onclick="select('supabase')">
+          <div class="block-header"><span class="block-name">Supabase</span><span class="block-arrow">›</span></div>
+          <div class="block-sub">PostgreSQL + Auth REST + RLS</div>
+        </div>
+        <div class="block c-green" id="b-github" onclick="select('github')">
+          <div class="block-header"><span class="block-name">GitHub / URL</span><span class="block-arrow">›</span></div>
+          <div class="block-sub">manifest JSON · dataset files · qmap</div>
+        </div>
+        <div class="block c-coral" id="b-openai" onclick="select('openai')">
+          <div class="block-header"><span class="block-name">OpenAI API</span><span class="block-arrow">›</span></div>
+          <div class="block-sub">GPT-4o-mini · vision · explain</div>
+        </div>
+      </div>
+
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div>UI / QML</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>Bridge</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--teal)"></div>Worker QThread</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--coral)"></div>Backend facade</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div>Mixin Python</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Moduli / servizi</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--gray)"></div>Storage</div>
+      </div>
+    </div><!-- /tab-arch -->
+
+    <!-- ── TAB: MODELLO DATI ── -->
+    <div id="tab-data" style="display:none">
+
+      <div class="dm-section">
+        <h2>QuizItem — dataclass Python</h2>
+        <table class="fields">
+          <tr><th>Campo</th><th>Tipo</th><th>Alias accettati</th><th>Note</th></tr>
+          <tr><td class="td-name">id</td><td class="td-type">str</td><td class="td-alias">qid</td><td class="td-desc">Grezzo dal JSON; auto "H"+SHA256 se "Q###"</td></tr>
+          <tr><td class="td-name">question</td><td class="td-type">str</td><td class="td-alias">domanda, text</td><td class="td-desc">Obbligatorio</td></tr>
+          <tr><td class="td-name">choices</td><td class="td-type">list[str]</td><td class="td-alias">answers, risposte</td><td class="td-desc">Già shuffled al momento della generazione quiz</td></tr>
+          <tr><td class="td-name">correct_index</td><td class="td-type">int</td><td class="td-alias">correctIndex, answerIndex, risposta_corretta</td><td class="td-desc">0-based, aggiornato dopo shuffle</td></tr>
+          <tr><td class="td-name">chapter</td><td class="td-type">str</td><td class="td-alias">capitolo, lezione</td><td class="td-desc">Default "Generale"</td></tr>
+          <tr><td class="td-name">explanation</td><td class="td-type">str = ""</td><td class="td-alias">spiegazione</td><td class="td-desc">Opzionale</td></tr>
+          <tr><td class="td-name">image_url</td><td class="td-type">str = ""</td><td class="td-alias">—</td><td class="td-desc">URI file:// da pdf_quiz_generator; vuoto se testo</td></tr>
+        </table>
+      </div>
+
+      <div class="dm-section">
+        <h2>Chiavi di Lookup</h2>
+        <div class="key-box">
+          <div class="key-label">qid — identità domanda</div>
+          <div class="key-formula">id se non "Q###", altrimenti "H" + SHA256(question.lower())[:16]</div>
+        </div>
+        <div class="key-box">
+          <div class="key-label">dataset_key — identità dataset (content-based)</div>
+          <div class="key-formula">SHA256("|".join(sorted(qid+"#"+chapter for each item)))[:16]</div>
+        </div>
+        <div class="key-box">
+          <div class="key-label">used_key — bacino domande estratte</div>
+          <div class="key-formula">dataset_hash + ":" + ",".join(sorted(selected_chapters)).lower()</div>
+        </div>
+        <div class="key-box">
+          <div class="key-label">_item_index — lookup O(1)</div>
+          <div class="key-formula">dict[str → QuizItem] precalcolato da _rebuild_item_index() dopo ogni load</div>
+        </div>
+      </div>
+
+      <div class="dm-section">
+        <h2>state.json — Struttura</h2>
+        <table class="fields">
+          <tr><th>Chiave</th><th>Valore</th><th>Descrizione</th></tr>
+          <tr><td class="td-name">used</td><td class="td-type">dict[used_key → list[qid]]</td><td class="td-desc">Bacino domande già estratte per selezione capitoli. Reset svuota la lista.</td></tr>
+          <tr><td class="td-name">stats</td><td class="td-type">list[dict] max 200</td><td class="td-desc">Storico sessioni: id, date, json, mode, dataset_key, total, correct, pct, snapshot, note</td></tr>
+          <tr><td class="td-name">wrong</td><td class="td-type">dict[dataset_key → list[dict]]</td><td class="td-desc">Bacino errori locale. Cloud-first con fallback locale.</td></tr>
+          <tr><td class="td-name">profiles</td><td class="td-type">dict[dataset_key → dict[name → payload]]</td><td class="td-desc">Profili distribuzione %: {chapters, percents, ts}</td></tr>
+          <tr><td class="td-name">prefs</td><td class="td-type">dict[str → str]</td><td class="td-desc">openai_api_key · cloud_manifest_url · supabase_last_user</td></tr>
+        </table>
+      </div>
+
+      <div class="dm-section">
+        <h2>JSON Dataset — Formato Input</h2>
+        <table class="fields">
+          <tr><th>Campo</th><th>Tipo</th><th>Alias</th><th>Note</th></tr>
+          <tr><td class="td-name">question</td><td class="td-type">str</td><td class="td-alias">domanda, text</td><td class="td-desc">Obbligatorio</td></tr>
+          <tr><td class="td-name">chapter</td><td class="td-type">str</td><td class="td-alias">capitolo, lezione</td><td class="td-desc">Default "Generale"</td></tr>
+          <tr><td class="td-name">choices</td><td class="td-type">list</td><td class="td-alias">answers, risposte</td><td class="td-desc">{text, correct} oppure stringhe con §§§[OK]</td></tr>
+          <tr><td class="td-name">correctIndex</td><td class="td-type">int</td><td class="td-alias">correct_index, answerIndex, risposta_corretta</td><td class="td-desc">Override su choices.correct</td></tr>
+          <tr><td class="td-name">correctAnswer</td><td class="td-type">str</td><td class="td-alias">correct_answer, solution</td><td class="td-desc">Lettera A-D o testo esatto della risposta</td></tr>
+          <tr><td class="td-name">id</td><td class="td-type">str</td><td class="td-alias">qid</td><td class="td-desc">Opzionale; auto-generato se Q###</td></tr>
+          <tr><td class="td-name">explanation</td><td class="td-type">str</td><td class="td-alias">spiegazione</td><td class="td-desc">Opzionale</td></tr>
+          <tr><td class="td-name">image_url</td><td class="td-type">str</td><td class="td-alias">—</td><td class="td-desc">URI file:// da pdf_quiz_generator</td></tr>
+        </table>
+      </div>
+
+      <div class="dm-section">
+        <h2>Tabelle Supabase (PostgreSQL + RLS)</h2>
+        <div class="db-table">
+          <div class="db-table-header">quiz_stats</div>
+          <table class="fields" style="margin:0">
+            <tr><th>Colonna</th><th>Tipo</th><th>Note</th></tr>
+            <tr><td class="td-name">id</td><td class="td-type">uuid PK</td><td class="td-desc">auto Supabase</td></tr>
+            <tr><td class="td-name">user_id</td><td class="td-type">uuid FK</td><td class="td-desc">→ auth.users</td></tr>
+            <tr><td class="td-name">json_name</td><td class="td-type">text</td><td class="td-desc">nome dataset (label display)</td></tr>
+            <tr><td class="td-name">mode</td><td class="td-type">text</td><td class="td-desc">"base" | "wrong"</td></tr>
+            <tr><td class="td-name">dataset_key</td><td class="td-type">text</td><td class="td-desc">hash SHA-256 contenuto — chiave di filtraggio</td></tr>
+            <tr><td class="td-name">total / correct / pct</td><td class="td-type">int</td><td class="td-desc">domande, corrette, percentuale</td></tr>
+            <tr><td class="td-name">snapshot</td><td class="td-type">jsonb</td><td class="td-desc">{desktop_snapshot: list[dict], html: str}</td></tr>
+            <tr><td class="td-name">created_at</td><td class="td-type">timestamptz</td><td class="td-desc">NOW() auto</td></tr>
+          </table>
+        </div>
+        <div class="db-table">
+          <div class="db-table-header">quiz_wrong_items</div>
+          <table class="fields" style="margin:0">
+            <tr><th>Colonna</th><th>Tipo</th><th>Note</th></tr>
+            <tr><td class="td-name">id</td><td class="td-type">uuid PK</td><td class="td-desc">auto</td></tr>
+            <tr><td class="td-name">user_id</td><td class="td-type">uuid FK</td><td class="td-desc">→ auth.users</td></tr>
+            <tr><td class="td-name">dataset_key</td><td class="td-type">text</td><td class="td-desc">hash SHA-256 dataset</td></tr>
+            <tr><td class="td-name">qid</td><td class="td-type">text</td><td class="td-desc">question ID stabile tra dispositivi</td></tr>
+            <tr><td class="td-name">payload</td><td class="td-type">jsonb</td><td class="td-desc">raw question dict completo</td></tr>
+            <tr><td class="td-name">updated_at</td><td class="td-type">timestamptz</td><td class="td-desc">per query order desc</td></tr>
+          </table>
+        </div>
+        <div class="db-table">
+          <div class="db-table-header">quiz_profiles</div>
+          <table class="fields" style="margin:0">
+            <tr><th>Colonna</th><th>Tipo</th><th>Note</th></tr>
+            <tr><td class="td-name">id</td><td class="td-type">uuid PK</td><td class="td-desc">auto</td></tr>
+            <tr><td class="td-name">user_id</td><td class="td-type">uuid FK</td><td class="td-desc">→ auth.users</td></tr>
+            <tr><td class="td-name">dataset_key</td><td class="td-type">text</td><td class="td-desc">hash SHA-256 dataset</td></tr>
+            <tr><td class="td-name">profile_name</td><td class="td-type">text</td><td class="td-desc">nome scelto dall'utente</td></tr>
+            <tr><td class="td-name">payload</td><td class="td-type">jsonb</td><td class="td-desc">{chapters: [], percents: {cap: float}, ts: ISO8601}</td></tr>
+            <tr><td class="td-name">is_current</td><td class="td-type">boolean</td><td class="td-desc">flag profilo attivo</td></tr>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /tab-data -->
+
+  </div><!-- /diagram-panel -->
+
+  <!-- ═══════════════════════════════════════════════════════════
+       PANNELLO DESTRA: dettaglio
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="detail-panel">
+    <div id="detail-header">
+      <div id="detail-badge"></div>
+      <div id="detail-title">Seleziona un blocco</div>
+      <button id="detail-close" onclick="closeDetail()">✕</button>
+    </div>
+    <div id="detail-body">
+      <div id="empty-state">
+        <div class="arrow">←</div>
+        <p>Clicca su qualsiasi blocco per leggere la descrizione dettagliata</p>
+      </div>
+      <div id="detail-content" style="display:none"></div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// DESCRIZIONI — auto-referenziali: il documento spiega se stesso
+// ══════════════════════════════════════════════════════════════
+const DESCRIPTIONS = {
+
+appwindow: {
+  title: 'ApplicationWindow',
+  color: 'var(--purple)',
+  html: `
+<h3>Ruolo</h3>
+<p><code>ApplicationWindow</code> è la radice dell'intera interfaccia — il componente QML che esiste per tutta la durata del processo. Tutto il resto (schermate, dialoghi, animazioni) vive dentro di lui o viene istanziato da lui.</p>
+
+<h3>Tre responsabilità principali</h3>
+<ul>
+  <li><strong>Stato globale reattivo</strong>: dichiara le <code>property</code> QML condivise da più componenti (<code>quizItems</code>, <code>chapters</code>, <code>isLoading</code>, <code>correctionDetails</code>, <code>examModeEnabled</code>…). Quando cambiano, tutti i binding che le usano si aggiornano automaticamente senza codice imperativo.</li>
+  <li><strong>Layout visivo</strong>: organizza in <code>ColumnLayout</code> l'header, la barra fonte-dati, il pannello capitoli+statistiche e la barra di stato. La visibilità di ogni sezione è guidata da <code>showMainArea</code>, <code>inQuizMode</code>, <code>hasDataset</code>.</li>
+  <li><strong>Orchestrazione segnali</strong>: i blocchi <code>Connections { target: quizBridge }</code> ascoltano i segnali Python e chiamano <code>refreshFromBridge()</code> che legge i JSON dal bridge e aggiorna le proprietà locali a cascata.</li>
+</ul>
+
+<h3>Pattern chiave: pull-on-notify</h3>
+<p>ApplicationWindow non chiama mai il backend per leggere dati in polling. Riceve una notifica via segnale, poi <em>tira</em> i dati con <code>JSON.parse(quizBridge.xxxJson)</code>. Il backend non sa nulla della UI.</p>
+
+<h3>FancyButton</h3>
+<p>Definito inline tramite <code>component FancyButton: Button { … }</code>. Non è un file separato ma una definizione locale riutilizzabile nell'intero file QML.</p>
+
+<h3>Dialoghi sempre in memoria</h3>
+<p>Tutti i <code>Dialog</code> (login, risultato, snapshot, AI, PDF, conferma) sono figli diretti e vivono sempre allocati — <code>open()</code>/<code>close()</code> ne controllano la visibilità. Evita il costo di istanziazione durante l'interazione.</p>
+
+<h3>Shortcuts Easter Egg</h3>
+<p>Tre shortcut (<code>E,N,Z,O</code> / <code>Ctrl+Shift+E</code> / <code>Alt+Shift+E</code>) e un tap-counter sul titolo (10 click) aprono <code>easterDialog</code> per configurare la chiave OpenAI e il manifest cloud.</p>
+`},
+
+bridge: {
+  title: 'QuizNovaBridge',
+  color: 'var(--blue)',
+  html: `
+<h3>Ruolo</h3>
+<p>È l'unico punto di contatto tra il mondo QML (JavaScript) e il backend Python. Esposto al contesto QML come <code>quizBridge</code> tramite <code>engine.rootContext().setContextProperty()</code>.</p>
+
+<h3>@Property — dati verso QML</h3>
+<p>Ogni proprietà ha un segnale <code>xxxChanged</code>. QML si lega direttamente: <code>quizBridge.quizJson</code>, <code>quizBridge.isLoading</code>, <code>quizBridge.poolUsed</code>…. Il bridge mantiene copie cache (stringhe JSON) aggiornate dai metodi <code>_sync_all()</code>, <code>_sync_dataset()</code>, <code>_sync_stats()</code> per evitare re-serializzazioni inutili.</p>
+
+<h3>@Slot — comandi da QML</h3>
+<p>Ogni azione utente (caricare un file, generare un quiz, correggere, fare login) chiama uno slot. I slot leggono JSON da QML, creano il worker appropriato, e lo avviano via <code>_start_worker()</code>.</p>
+
+<h3>Gestione worker</h3>
+<p><code>_active_workers: list[QThread]</code> tiene traccia di tutti i thread attivi. <code>_set_loading(True)</code> si accende al primo worker, <code>_set_loading(False)</code> si spegne solo quando la lista è vuota — gestisce correttamente le operazioni parallele.</p>
+
+<h3>shutdown()</h3>
+<p>Chiamato su <code>app.aboutToQuit</code>. Tenta <code>requestInterruption()</code> + <code>wait(1500ms)</code> per ogni worker; se non termina, forza <code>terminate()</code>. Previene SIGABRT alla chiusura dell'app.</p>
+`},
+
+loadfile: {
+  title: 'LoadFileWorker',
+  color: 'var(--teal)',
+  html: `
+<h3>Operazione</h3>
+<p>Legge e parsifica un file JSON dal filesystem locale in un thread separato. Chiama <code>backend.load_from_file(path)</code>.</p>
+<h3>Segnali emessi</h3>
+<ul><li><code>finished(bool, str)</code> — ok + messaggio di stato</li></ul>
+<h3>Perché in thread?</h3>
+<p>File JSON grandi (migliaia di domande) possono richiedere centinaia di ms per la lettura e il parsing. Il thread evita di bloccare il main thread Qt e congelare la UI.</p>
+`},
+
+loadurl: {
+  title: 'LoadUrlWorker',
+  color: 'var(--teal)',
+  html: `
+<h3>Operazione</h3>
+<p>Scarica un file JSON da URL HTTP/S e lo parsifica. Chiama <code>backend.load_from_url(url)</code> che usa <code>_urlopen_with_ssl_fallback()</code>.</p>
+<h3>Segnali emessi</h3>
+<ul><li><code>finished(bool, str)</code></li></ul>
+<h3>Note SSL</h3>
+<p>Tenta prima il bundle CA di sistema, poi certifi se fallisce. Non usa mai <code>ssl._create_unverified_context()</code>.</p>
+`},
+
+loadpdf: {
+  title: 'LoadPdfWorker',
+  color: 'var(--teal)',
+  html: `
+<h3>Operazione</h3>
+<p>Esegue la pipeline completa PDF → Quiz: estrazione testo, estrazione immagini, chunking, chiamate OpenAI, validazione. Chiama <code>backend.load_from_pdf(path, progress_cb, run_mode)</code>.</p>
+<h3>Segnali emessi</h3>
+<ul>
+  <li><code>progress(str)</code> — aggiornamenti incrementali durante l'elaborazione (es. "PDF: chunk 3/12 (45%)")</li>
+  <li><code>finished(bool, str)</code> — risultato finale</li>
+</ul>
+<h3>run_mode</h3>
+<p><code>"quick"</code>: max 3 pagine, 3 chunk, 12 domande. <code>"complete"</code>: elaborazione piena con tetto 400 domande. La modalità viene scelta dall'utente nel dialogo <code>pdfModeDialog</code>.</p>
+`},
+
+correct: {
+  title: 'CorrectAllWorker',
+  color: 'var(--teal)',
+  html: `
+<h3>Operazione</h3>
+<p>Esegue la correzione del quiz e, se l'utente è loggato al cloud, scrive le statistiche su Supabase — tutto in un thread separato perché la scrittura cloud può richiedere 1-3 secondi.</p>
+<h3>Segnali emessi</h3>
+<ul>
+  <li><code>resultReady(result_json, stats_json, wrong_stats_json, wrong_count)</code> — pre-calcola tutto sul thread worker così il main thread non fa ulteriori chiamate bloccanti</li>
+  <li><code>finished(bool, str)</code></li>
+</ul>
+<h3>Perché pre-calcola le stats?</h3>
+<p>Dopo la correzione, QML mostra immediatamente il dialog risultato + aggiorna le statistiche. Se queste richiedessero chiamate cloud dal main thread, la UI si congelerebbe. Il worker le calcola e le serializza prima di emettere il segnale.</p>
+`},
+
+cloudlogin: {
+  title: 'CloudLoginWorker',
+  color: 'var(--teal)',
+  html: `
+<h3>Operazione</h3>
+<p>Esegue l'autenticazione Supabase con email e password. Chiama <code>backend.supabase_sign_in_password(username, password)</code> che contatta <code>/auth/v1/token?grant_type=password</code>.</p>
+<h3>Dettaglio username</h3>
+<p>Se l'username non contiene "@", aggiunge automaticamente "@app.local" per compatibilità con Supabase email auth.</p>
+<h3>Risultato</h3>
+<p>In caso di successo, il backend salva <code>auth_access_token</code> e <code>current_user</code> in memoria. Il token viene usato come Bearer in tutte le successive chiamate REST.</p>
+`},
+
+ai: {
+  title: 'AiWorker',
+  color: 'var(--teal)',
+  html: `
+<h3>Operazione</h3>
+<p>Chiama OpenAI GPT-4o-mini per generare una spiegazione della domanda sbagliata: perché la risposta selezionata è errata, perché quella corretta è giusta, come evitare l'errore.</p>
+<h3>Segnali emessi</h3>
+<ul>
+  <li><code>resultReady(str)</code> — testo della spiegazione</li>
+  <li><code>finished(bool, str)</code></li>
+</ul>
+<h3>Prompt strutturato</h3>
+<p>Il prompt richiede 3 sezioni numerate: 1) Perché è sbagliata 2) Perché è corretta 3) Come evitare l'errore. Temperatura 0.2 per risposte deterministiche e precise.</p>
+<h3>Accesso</h3>
+<p>Richiede la chiave OpenAI configurata nell'Easter Egg (<code>openai_api_key</code> nelle prefs). Senza chiave il pulsante "Interroga A.I." non appare.</p>
+`},
+
+cloudentries: {
+  title: 'CloudEntriesWorker',
+  color: 'var(--teal)',
+  html: `
+<h3>Operazione</h3>
+<p>Scarica il file manifest da GitHub (o altro URL) e costruisce la lista dei dataset JSON disponibili. Chiama <code>backend.cloud_fetch_entries(manifest_url)</code>.</p>
+<h3>Normalizzazione URL</h3>
+<p>Converte automaticamente URL GitHub "blob" in URL "raw.githubusercontent.com". Gestisce manifest.json e manifest_full.json come fallback. Filtra le entry non-JSON (PDF, qmap, xlsx).</p>
+`},
+
+cloudload: {
+  title: 'CloudLoadSelectedWorker',
+  color: 'var(--teal)',
+  html: `
+<h3>Operazione</h3>
+<p>Scarica il dataset JSON selezionato dall'utente nel Cloud Picker e lo carica nel backend. Chiama <code>backend.cloud_load_selected(url, name)</code>.</p>
+<h3>Effetto</h3>
+<p>Imposta <code>current_source_mode = "cloud"</code>. Le statistiche successive vengono scritte su Supabase invece che su state.json locale.</p>
+`},
+
+wrongquiz: {
+  title: 'GenerateWrongQuizWorker',
+  color: 'var(--teal)',
+  html: `
+<h3>Operazione</h3>
+<p>Legge il bacino errori (cloud o locale), attiva la modalità wrong, e genera il quiz — tutto in thread perché la lettura cloud è I/O bloccante.</p>
+<h3>Sequenza</h3>
+<ul>
+  <li>Se non già in wrong mode: chiama <code>backend.load_wrong_only()</code></li>
+  <li>Chiama <code>backend.generate_quiz(count)</code></li>
+  <li>Emette <code>quizReady(quiz_json)</code> con il payload completo</li>
+</ul>
+<h3>Segnali emessi</h3>
+<ul>
+  <li><code>quizReady(str)</code> — JSON del quiz</li>
+  <li><code>finished(bool, str)</code></li>
+</ul>
+`},
+
+backend: {
+  title: 'QuizNovaBackend',
+  color: 'var(--coral)',
+  html: `
+<h3>Ruolo</h3>
+<p>La facade pubblica dell'intero backend. Non contiene quasi logica propria — coordina i quattro mixin che eredita e aggiunge i metodi che richiedono collaborazione tra più mixin.</p>
+
+<h3>Ereditarietà multipla Python (MRO)</h3>
+<p><code>QuizNovaBackend(_StorageManager, _NetMixin, _CloudMixin, _QuizEngine)</code>. Python risolve i metodi da sinistra a destra nella catena MRO. I mixin si assumono la presenza degli altri via <code>self</code>.</p>
+
+<h3>Stato runtime principale</h3>
+<div class="field-row"><span class="field-name">all_items</span><span class="field-type">list[QuizItem]</span><span class="field-desc">dataset completo caricato</span></div>
+<div class="field-row"><span class="field-name">current_items</span><span class="field-type">list[QuizItem]</span><span class="field-desc">quiz in corso (già shuffled)</span></div>
+<div class="field-row"><span class="field-name">base_all_items</span><span class="field-type">list[QuizItem]</span><span class="field-desc">dataset originale in wrong mode</span></div>
+<div class="field-row"><span class="field-name">is_wrong_mode</span><span class="field-type">bool</span><span class="field-desc">true quando in modalità errori</span></div>
+<div class="field-row"><span class="field-name">_item_index</span><span class="field-type">dict[str→QuizItem]</span><span class="field-desc">lookup O(1) per qid</span></div>
+
+<h3>Metodi chiave</h3>
+<ul>
+  <li><code>load_from_payload()</code> — entry point comune per tutti i loader</li>
+  <li><code>generate_quiz(count)</code> — pesca dal pool non-usato, applica shuffle scelte</li>
+  <li><code>correct_all(answers)</code> — corregge, salva wrong questions, scrive stats</li>
+  <li><code>_cache_current_as_base()</code> — snapshot del dataset per wrong mode</li>
+</ul>
+`},
+
+storage: {
+  title: '_StorageManager',
+  color: 'var(--amber)',
+  html: `
+<h3>Ruolo</h3>
+<p>Gestisce tutta la persistenza locale: lettura/scrittura di <code>state.json</code> e le preferenze utente. Garantisce la thread-safety delle scritture.</p>
+
+<h3>Threading</h3>
+<p><code>threading.Lock</code> protegge <code>_save_state()</code>. Le scritture da worker thread (es. <code>CorrectAllWorker</code> che aggiorna <code>_state["used"]</code>) acquisiscono il lock prima di scrivere su disco.</p>
+
+<h3>Struttura _state</h3>
+<ul>
+  <li><code>used</code> — bacino domande estratte</li>
+  <li><code>stats</code> — storico sessioni (max 200)</li>
+  <li><code>wrong</code> — bacino errori locale</li>
+  <li><code>profiles</code> — profili distribuzione %</li>
+  <li><code>prefs</code> — preferenze utente</li>
+</ul>
+
+<h3>Recovery</h3>
+<p>Se <code>state.json</code> non esiste o è corrotto, <code>_load_state()</code> restituisce silenziosamente una struttura vuota. Il file viene ricreato alla prima <code>_save_state()</code>.</p>
+`},
+
+net: {
+  title: '_NetMixin',
+  color: 'var(--amber)',
+  html: `
+<h3>Ruolo</h3>
+<p>Fornisce <code>_urlopen_with_ssl_fallback()</code> — l'unico punto dell'app da cui passano tutte le richieste HTTP/S. Garantisce che SSL non sia mai disabilitato silenziosamente.</p>
+
+<h3>Strategia SSL (3 passi)</h3>
+<ul>
+  <li><strong>Tentativo 1</strong>: bundle CA del sistema operativo (default <code>urllib</code>).</li>
+  <li><strong>Tentativo 2</strong>: bundle CA di certifi (incluso nel pacchetto PyInstaller). Utile su macOS con certificati scaduti.</li>
+  <li><strong>Errore esplicito</strong>: <code>SSLCertVerificationError</code> con messaggio chiaro. Mai <code>ssl._create_unverified_context()</code>.</li>
+</ul>
+
+<h3>Rilevamento errori SSL</h3>
+<p><code>_is_ssl_error()</code> controlla: <code>SSLCertVerificationError</code>, stringa "CERTIFICATE_VERIFY_FAILED" nel messaggio, o nel <code>reason</code> di <code>URLError</code>. Solo questi triggherano il fallback.</p>
+`},
+
+cloud: {
+  title: '_CloudMixin',
+  color: 'var(--amber)',
+  html: `
+<h3>Ruolo</h3>
+<p>Tutto il codice che parla con Supabase. Dipende da <code>_StorageManager</code> (per <code>self._state</code>, <code>get_pref()</code>) e da <code>_NetMixin</code> (per <code>_urlopen_with_ssl_fallback()</code>).</p>
+
+<h3>_supabase_rest()</h3>
+<p>Metodo centrale per tutte le chiamate REST. Costruisce l'endpoint, aggiunge header auth (<code>apikey</code> + <code>Bearer token</code>), gestisce gli errori HTTP con parsing del corpo JSON di errore Supabase.</p>
+
+<h3>Strategia wrong: cloud-first</h3>
+<p><code>_wrong_read()</code>: prova cloud, fallback locale se fallisce. <code>_wrong_write()</code>: scrive cloud, fallback locale se fallisce. Questo garantisce che l'utente non perda dati in caso di rete intermittente.</p>
+
+<h3>Autenticazione</h3>
+<p><code>supabase_sign_in_password()</code> chiama <code>/auth/v1/token?grant_type=password</code>. Il token JWT ottenuto viene tenuto in memoria (<code>auth_access_token</code>) e usato in tutti i successivi <code>_supabase_rest()</code>.</p>
+`},
+
+engine: {
+  title: '_QuizEngine',
+  color: 'var(--amber)',
+  html: `
+<h3>Ruolo</h3>
+<p>Classe mixin che contiene le utility pure (no I/O, no rete) usate dalla logica quiz. Non dipende da nessun altro mixin.</p>
+
+<h3>Metodi</h3>
+<div class="field-row"><span class="field-name">_hash(value)</span><span class="field-desc">SHA-256 hex[:16] — usato per dataset_key e qid</span></div>
+<div class="field-row"><span class="field-name">_qid(item)</span><span class="field-desc">Restituisce id se non "Q###", altrimenti "H"+hash della domanda</span></div>
+<div class="field-row"><span class="field-name">_norm_stats_name()</span><span class="field-desc">Normalizza il nome dataset per confronti: lowercase, no spazi multipli, stem senza estensione</span></div>
+<div class="field-row"><span class="field-name">_chapter_sort_key()</span><span class="field-desc">Estrae il numero da "Lezione 3" per ordinamento numerico invece che lessicografico</span></div>
+`},
+
+pdfgen: {
+  title: 'pdf_quiz_generator.py',
+  color: 'var(--green)',
+  html: `
+<h3>Ruolo</h3>
+<p>Modulo autonomo che implementa la pipeline PDF → JSON quiz. Viene importato a runtime da <code>backend.load_from_pdf()</code>.</p>
+
+<h3>Pipeline in 8 fasi</h3>
+<ul>
+  <li><strong>1. Testo</strong>: <code>pypdf.PdfReader</code> estrae testo pagina per pagina.</li>
+  <li><strong>2. Immagini</strong>: <code>pypdf.page.images</code> + Pillow (resize max 640px, PNG).</li>
+  <li><strong>3. Chunking</strong>: raggruppa per intestazione capitolo, flush ogni 10 pagine o 4000 caratteri.</li>
+  <li><strong>4. Salvataggio immagini</strong>: <code>&lt;stem&gt;_images/&lt;slug&gt;_N.png</code> con URI <code>file://</code>.</li>
+  <li><strong>5. GPT-4o-mini vision</strong>: prompt multimodale testo + immagini base64 detail:low.</li>
+  <li><strong>6. Validazione</strong>: scarta placeholder, domande dipendenti da immagini, quasi-duplicati (SequenceMatcher ≥ 0.9).</li>
+  <li><strong>7. image_url</strong>: assegna URI a domande con keyword visiva (figura, grafico…).</li>
+  <li><strong>8. Load</strong>: <code>backend.load_from_payload()</code> + <code>_cache_current_as_base()</code>.</li>
+</ul>
+
+<h3>Budget domande</h3>
+<p><code>min(400, pagine × 3)</code>. Distribuito equamente tra i chunk con arrotondamento per rimanenti.</p>
+
+<h3>Recovery JSON troncato</h3>
+<p>3 livelli: parse diretto → <code>rfind("]")</code> → scansione carattere-per-carattere degli oggetti <code>{}</code> bilanciati. Recupera le domande già complete anche con risposta troncata da <code>max_tokens</code>.</p>
+
+<h3>Retry OpenAI</h3>
+<p>3 tentativi con backoff esponenziale (base 2s + jitter casuale) solo su errori transienti (429, 5xx). Errori permanenti (401, 400) rilanciano immediatamente.</p>
+`},
+
+crypto: {
+  title: 'copyright_crypto.py',
+  color: 'var(--gray)',
+  html: `
+<h3>Ruolo</h3>
+<p>Cifratura e verifica integrità degli asset Easter Egg (immagini, file cifrati inclusi nel bundle). Le chiavi non sono mai hardcoded.</p>
+
+<h3>Caricamento chiavi</h3>
+<p>Lookup in cascata: 1) variabili d'ambiente <code>QUIZNOVA_ENC_KEY</code>/<code>QUIZNOVA_MAC_KEY</code> → 2) file <code>~/.quiznova/.env</code> → 3) <code>RuntimeError</code> esplicito. Mai fallback silenzioso con valore fittizio.</p>
+
+<h3>Cifratura: XOR-stream</h3>
+<p>Keystream derivato da SHA-256: <code>KS_i = SHA256(key ‖ nonce ‖ counter_8byte_bigendian)</code>. La funzione è simmetrica (cifratura = decifratura). XOR via aritmetica big-integer Python: ~2.5× più veloce del generator <code>zip</code> su file >100 KB.</p>
+
+<h3>Integrità manifest: HMAC-SHA-256</h3>
+<p>Il manifest è serializzato in forma canonica (JSON con chiavi ordinate, entry ordinate per file). Il MAC viene verificato con <code>hmac.compare_digest()</code> — timing-safe, protegge da attacchi a tempo.</p>
+
+<h3>Unicità nonce</h3>
+<p><code>assert_manifest_nonces_unique()</code>: il riuso dello stesso nonce con la stessa chiave annullerebbe la riservatezza (<code>XOR(A,KS)⊕XOR(B,KS) = XOR(A,B)</code>). Da chiamare prima di firmare.</p>
+`},
+
+statefile: {
+  title: '~/.quiznova/',
+  color: 'var(--gray)',
+  html: `
+<h3>Contenuto</h3>
+<ul>
+  <li><code>state.json</code> — persistenza locale: bacino usati, statistiche, errori, profili, prefs.</li>
+  <li><code>.env</code> — credenziali (non nel VCS). Letto da <code>_load_keys()</code> e dal backend all'avvio.</li>
+</ul>
+
+<h3>state.json — struttura top-level</h3>
+<div class="field-row"><span class="field-name">used</span><span class="field-desc">dict[used_key → list[qid]] — bacino domande estratte</span></div>
+<div class="field-row"><span class="field-name">stats</span><span class="field-desc">list[dict] max 200 — storico sessioni con snapshot</span></div>
+<div class="field-row"><span class="field-name">wrong</span><span class="field-desc">dict[dataset_key → list[dict]] — bacino errori locale</span></div>
+<div class="field-row"><span class="field-name">profiles</span><span class="field-desc">dict[dataset_key → {name → payload}] — profili %</span></div>
+<div class="field-row"><span class="field-name">prefs</span><span class="field-desc">dict[str → str] — chiave OpenAI, manifest URL, last user</span></div>
+
+<h3>Reset</h3>
+<p>Eliminare il file: <code>rm ~/.quiznova/state.json</code>. L'app lo ricrea vuoto. Le statistiche cloud (Supabase) sono preservate.</p>
+`},
+
+supabase: {
+  title: 'Supabase (PostgreSQL)',
+  color: 'var(--blue)',
+  html: `
+<h3>Ruolo</h3>
+<p>Database cloud per la sincronizzazione multi-dispositivo di statistiche, bacino errori e profili. Usato solo quando l'utente è autenticato.</p>
+
+<h3>Tre tabelle</h3>
+<ul>
+  <li><code>quiz_stats</code> — storico sessioni con snapshot JSON completo delle risposte.</li>
+  <li><code>quiz_wrong_items</code> — bacino errori per utente, dataset_key e qid. Sostituisce completamente il record ad ogni sync (DELETE + INSERT).</li>
+  <li><code>quiz_profiles</code> — profili distribuzione percentuale capitoli.</li>
+</ul>
+
+<h3>Chiave di filtro: dataset_key</h3>
+<p>Tutte le query filtrano su <code>dataset_key = SHA256(contenuto)</code>. Content-based: lo stesso JSON produce lo stesso hash su qualsiasi dispositivo. Le statistiche rimangono associate al contenuto, non al nome del file.</p>
+
+<h3>RLS (Row Level Security)</h3>
+<p>Ogni riga è associata a <code>user_id</code>. Le policy RLS di Supabase impediscono l'accesso ai dati di altri utenti anche con il token anon key.</p>
+`},
+
+github: {
+  title: 'GitHub / URL remoti',
+  color: 'var(--green)',
+  html: `
+<h3>Ruolo</h3>
+<p>Repository dei dataset JSON pubblici. Il Cloud Picker scarica un manifest e poi permette di scegliere quale dataset caricare.</p>
+
+<h3>Struttura attesa</h3>
+<ul>
+  <li><code>manifest_full.json</code> o <code>manifest.json</code> — lista di entry con name e url.</li>
+  <li><code>*.json</code> — file dataset con array di domande.</li>
+  <li><code>*.qmap</code> — mappa capitolo → numero pagina PDF (opzionale).</li>
+</ul>
+
+<h3>Normalizzazione URL</h3>
+<p>URL GitHub "blob" (<code>github.com/user/repo/blob/main/file.json</code>) vengono convertiti automaticamente in URL "raw" (<code>raw.githubusercontent.com/…</code>). URL relativi nel manifest vengono risolti rispetto alla base del manifest.</p>
+`},
+
+openai: {
+  title: 'OpenAI API',
+  color: 'var(--coral)',
+  html: `
+<h3>Utilizzo</h3>
+<p>Due usi distinti: generazione quiz da PDF (pdf_quiz_generator) e spiegazione domande sbagliate (AiWorker).</p>
+
+<h3>Modello</h3>
+<p><code>gpt-4o-mini</code> — supporta vision multimodale dal 2024-07. Temperatura 0.3 per la generazione quiz, 0.2 per le spiegazioni.</p>
+
+<h3>Accesso</h3>
+<p>Richiede chiave OpenAI salvata nelle prefs (<code>openai_api_key</code>). Configurabile dall'Easter Egg. Senza chiave le funzionalità AI non sono visibili nell'interfaccia.</p>
+
+<h3>Costo</h3>
+<p>Le immagini vengono inviate con <code>detail: "low"</code> per ridurre i token. Max 2 immagini per chunk. Il budget domande è proporzionale alle pagine per evitare chiamate eccessive su PDF molto lunghi.</p>
+`}
+
+}; // fine DESCRIPTIONS
+
+// ══════════════════════════════════════════════════════════════
+// Logica interazione
+// ══════════════════════════════════════════════════════════════
+let activeId = null;
+
+function select(id) {
+  // deselect previous
+  if (activeId) {
+    const prev = document.getElementById('b-' + activeId);
+    if (prev) prev.classList.remove('active');
+  }
+
+  if (activeId === id) {
+    // toggle off
+    activeId = null;
+    closeDetail();
+    return;
+  }
+
+  activeId = id;
+  const block = document.getElementById('b-' + id);
+  if (block) block.classList.add('active');
+
+  const d = DESCRIPTIONS[id];
+  if (!d) return;
+
+  document.getElementById('detail-badge').style.background = d.color;
+  document.getElementById('detail-title').textContent = d.title;
+
+  document.getElementById('empty-state').style.display = 'none';
+  const content = document.getElementById('detail-content');
+  content.style.display = 'block';
+  content.innerHTML = d.html;
+
+  const panel = document.getElementById('detail-panel');
+  panel.classList.remove('collapsed');
+}
+
+function closeDetail() {
+  if (activeId) {
+    const prev = document.getElementById('b-' + activeId);
+    if (prev) prev.classList.remove('active');
+    activeId = null;
+  }
+  document.getElementById('empty-state').style.display = 'flex';
+  document.getElementById('detail-content').style.display = 'none';
+  document.getElementById('detail-badge').style.background = 'var(--muted)';
+  document.getElementById('detail-title').textContent = 'Seleziona un blocco';
+}
+
+function showTab(tab) {
+  document.getElementById('tab-arch').style.display = tab === 'arch' ? 'block' : 'none';
+  document.getElementById('tab-data').style.display = tab === 'data' ? 'block' : 'none';
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', (i === 0 && tab === 'arch') || (i === 1 && tab === 'data'));
+  });
+  closeDetail();
+}
+</script>
+</body>
+</html>

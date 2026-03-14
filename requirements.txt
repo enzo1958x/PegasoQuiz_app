@@ -1,0 +1,16 @@
+# PegasoQuiz — dipendenze Python
+# Installa con:  pip install -r requirements.txt
+
+# -- UI / framework -----------------------------------------------------------
+PySide6>=6.6
+
+# -- build --------------------------------------------------------------------
+PyInstaller>=6.18
+
+# -- rete / SSL ---------------------------------------------------------------
+certifi                 # bundle CA aggiornato per urllib SSL fallback
+
+# -- PDF -> Quiz --------------------------------------------------------------
+pdfminer.six            # estrazione testo da PDF
+pypdf>=4.0              # estrazione immagini da PDF (API .images da v3.x)
+Pillow>=10.0            # resize/conversione immagini (richiesto da pypdf .image)

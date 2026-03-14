@@ -1,0 +1,184 @@
+588 INFO: PyInstaller: 6.19.0, contrib hooks: 2026.2
+588 INFO: Python: 3.13.5 (conda)
+601 INFO: Platform: macOS-26.3.1-arm64-arm-64bit-Mach-O
+601 INFO: Python environment: /opt/anaconda3
+1431 INFO: Module search paths (PYTHONPATH):
+['/opt/anaconda3/lib/python313.zip',
+ '/opt/anaconda3/lib/python3.13',
+ '/opt/anaconda3/lib/python3.13/lib-dynload',
+ '/opt/anaconda3/lib/python3.13/site-packages',
+ '/opt/anaconda3/lib/python3.13/site-packages/aeosa',
+ '/Users/vincenzodemaria/Desktop/QuizAlgo/PegasoQuiz/sorgenti']
+2292 INFO: Appending 'datas' from .spec
+2293 INFO: checking Analysis
+2293 INFO: Building Analysis because Analysis-00.toc is non existent
+2293 INFO: Looking for Python shared library...
+2294 INFO: Using Python shared library: /opt/anaconda3/lib/libpython3.13.dylib
+2294 INFO: Running Analysis Analysis-00.toc
+2294 INFO: Target bytecode optimization level: 0
+2294 INFO: Initializing module dependency graph...
+2295 INFO: Initializing module graph hook caches...
+2302 INFO: Analyzing modules for base_library.zip ...
+4374 INFO: Processing standard module hook 'hook-encodings.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+5769 INFO: Processing standard module hook 'hook-pickle.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+6230 INFO: Processing standard module hook 'hook-heapq.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+6514 INFO: Caching module dependency graph...
+6535 INFO: Analyzing /Users/vincenzodemaria/Desktop/QuizAlgo/PegasoQuiz/sorgenti/main_quiznova.py
+6556 INFO: Processing standard module hook 'hook-PySide6.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+6776 INFO: Processing standard module hook 'hook-shiboken6.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+6839 INFO: Processing standard module hook 'hook-PySide6.QtNetwork.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+7275 INFO: Processing standard module hook 'hook-PySide6.QtCore.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+7620 INFO: Processing standard module hook 'hook-PySide6.QtWidgets.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+8001 INFO: Processing standard module hook 'hook-PySide6.QtGui.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+8160 INFO: Processing standard module hook 'hook-PySide6.QtQml.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+--- Logging error ---
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.13/logging/__init__.py", line 1151, in emit
+    msg = self.format(record)
+  File "/opt/anaconda3/lib/python3.13/logging/__init__.py", line 999, in format
+    return fmt.format(record)
+           ~~~~~~~~~~^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/logging/__init__.py", line 712, in format
+    record.message = record.getMessage()
+                     ~~~~~~~~~~~~~~~~~^^
+  File "/opt/anaconda3/lib/python3.13/logging/__init__.py", line 400, in getMessage
+    msg = msg % self.args
+          ~~~~^~~~~~~~~~~
+TypeError: not enough arguments for format string
+Call stack:
+  File "/opt/anaconda3/bin/pyinstaller", line 8, in <module>
+    sys.exit(_console_script_run())
+  File "/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/__main__.py", line 231, in _console_script_run
+    run()
+  File "/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/__main__.py", line 215, in run
+    run_build(pyi_config, spec_file, **vars(args))
+  File "/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/__main__.py", line 70, in run_build
+    PyInstaller.building.build_main.main(pyi_config, spec_file, **kwargs)
+  File "/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/building/build_main.py", line 1275, in main
+    build(specfile, distpath, workpath, clean_build)
+  File "/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/building/build_main.py", line 1213, in build
+    exec(code, spec_namespace)
+  File "PegasoQuiz.spec", line 55, in <module>
+    a = Analysis(
+  File "/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/building/build_main.py", line 584, in __init__
+    self.__postinit__()
+  File "/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/building/datastruct.py", line 184, in __postinit__
+    self.assemble()
+  File "/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/building/build_main.py", line 716, in assemble
+    program_scripts.append(self.graph.add_script(script))
+  File "/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/depend/analysis.py", line 283, in add_script
+    self._top_script_node = super().add_script(pathname)
+  File "/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/lib/modulegraph/modulegraph.py", line 1194, in add_script
+    self._process_imports(n)
+  File "/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/lib/modulegraph/modulegraph.py", line 2654, in _process_imports
+    target_modules = self._safe_import_hook(*import_info, **kwargs)
+  File "/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/depend/analysis.py", line 477, in _safe_import_hook
+    ret_modules = super()._safe_import_hook(
+  File "/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/lib/modulegraph/modulegraph.py", line 2103, in _safe_import_hook
+    target_modules = self.import_hook(
+  File "/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/lib/modulegraph/modulegraph.py", line 1279, in import_hook
+    submodule = self._safe_import_module(head, mname, submodule)
+  File "/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/depend/analysis.py", line 539, in _safe_import_module
+    return super()._safe_import_module(module_basename, module_name, parent_package)
+  File "/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/lib/modulegraph/modulegraph.py", line 1826, in _safe_import_module
+    self._process_imports(n)
+  File "/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/lib/modulegraph/modulegraph.py", line 2654, in _process_imports
+    target_modules = self._safe_import_hook(*import_info, **kwargs)
+  File "/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/depend/analysis.py", line 385, in _safe_import_hook
+    excluded_imports = self._find_all_excluded_imports(source_module.identifier)
+  File "/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/depend/analysis.py", line 373, in _find_all_excluded_imports
+    excluded_imports.update(module_hook.excludedimports)
+  File "/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/depend/imphook.py", line 343, in __getattr__
+    self._load_hook_module()
+  File "/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/depend/imphook.py", line 422, in _load_hook_module
+    self._hook_module = importlib_load_source(self.hook_module_name, self.hook_filename)
+  File "/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/compat.py", line 559, in importlib_load_source
+    mod_loader.exec_module(mod)
+  File "<frozen importlib._bootstrap_external>", line 1026, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks/hook-PySide6.QtQml.py", line 15, in <module>
+    qml_binaries, qml_datas = pyside6_library_info.collect_qtqml_files()
+  File "/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/utils/hooks/qt/__init__.py", line 963, in collect_qtqml_files
+    plugin_binaries, plugin_datas = self._process_qml_plugin(qmldir_file)
+  File "/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/utils/hooks/qt/__init__.py", line 1014, in _process_qml_plugin
+    logger.warn("%s: QML plugin binary %r does not exist!", str(plugin_file))
+Message: '%s: QML plugin binary %r does not exist!'
+Arguments: ('/opt/anaconda3/lib/qt6/qml/Assets/Downloader/libqmlassetdownloaderplugin.dylib',)
+8794 INFO: Processing standard module hook 'hook-_ctypes.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+8852 INFO: Processing standard module hook 'hook-certifi.py' from '/opt/anaconda3/lib/python3.13/site-packages/_pyinstaller_hooks_contrib/stdhooks'
+8863 INFO: Processing standard module hook 'hook-PySide6.QtPrintSupport.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+8966 INFO: Processing standard module hook 'hook-difflib.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+8975 INFO: Processing standard module hook 'hook-cryptography.py' from '/opt/anaconda3/lib/python3.13/site-packages/_pyinstaller_hooks_contrib/stdhooks'
+10279 INFO: hook-cryptography: cryptography uses dynamically-linked OpenSSL: '/opt/anaconda3/lib/libssl.3.dylib'
+10307 INFO: Processing pre-safe-import-module hook 'hook-typing_extensions.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks/pre_safe_import_module'
+10308 INFO: SetuptoolsInfo: initializing cached setuptools info...
+12678 INFO: Processing standard module hook 'hook-xml.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+12679 INFO: Processing standard module hook 'hook-xml.dom.domreg.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+12785 INFO: Processing standard module hook 'hook-PIL.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+12834 INFO: Processing standard module hook 'hook-PIL.Image.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+13459 INFO: Processing standard module hook 'hook-xml.etree.cElementTree.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+13630 INFO: Processing standard module hook 'hook-platform.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+13652 INFO: Processing standard module hook 'hook-sysconfig.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+13659 INFO: Processing standard module hook 'hook-_osx_support.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+13692 INFO: Processing standard module hook 'hook-PIL.ImageFilter.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+14128 INFO: Processing standard module hook 'hook-PySide6.QtPdf.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+14201 INFO: Processing standard module hook 'hook-PySide6.QtPdfWidgets.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+14269 INFO: Analyzing hidden import 'charset_normalizer'
+14270 INFO: Processing standard module hook 'hook-charset_normalizer.py' from '/opt/anaconda3/lib/python3.13/site-packages/_pyinstaller_hooks_contrib/stdhooks'
+14318 INFO: Analyzing hidden import 'charset_normalizer.__main__'
+14322 INFO: Analyzing hidden import 'copyright_crypto'
+14325 INFO: Analyzing hidden import 'PySide6.QtQuick'
+14364 INFO: Processing standard module hook 'hook-PySide6.QtQuick.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+15137 INFO: Processing standard module hook 'hook-PySide6.QtOpenGL.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+15224 INFO: Analyzing hidden import 'PySide6.QtQuickControls2'
+15225 INFO: Processing standard module hook 'hook-PySide6.QtQuickControls2.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+15291 INFO: Processing module hooks (post-graph stage)...
+15319 WARNING: Hidden import "charset_normalizer.md__mypyc" not found!
+15446 INFO: Processing standard module hook 'hook-PIL.SpiderImagePlugin.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+15494 INFO: Processing standard module hook 'hook-PySide6.QtDBus.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+15570 INFO: Performing binary vs. data reclassification (1875 entries)
+15865 INFO: Looking for ctypes DLLs
+15873 INFO: Analyzing run-time hooks ...
+15873 INFO: Including run-time hook 'pyi_rth_inspect.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks/rthooks'
+15875 INFO: Including run-time hook 'pyi_rth_pkgutil.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks/rthooks'
+15875 INFO: Including run-time hook 'pyi_rth_cryptography_openssl.py' from '/opt/anaconda3/lib/python3.13/site-packages/_pyinstaller_hooks_contrib/rthooks'
+15876 INFO: Including run-time hook 'pyi_rth_pyside6.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks/rthooks'
+15877 INFO: Processing pre-find-module-path hook 'hook-_pyi_rth_utils.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks/pre_find_module_path'
+15877 INFO: Processing standard module hook 'hook-_pyi_rth_utils.py' from '/opt/anaconda3/lib/python3.13/site-packages/PyInstaller/hooks'
+15898 INFO: Creating base_library.zip...
+15906 INFO: Looking for dynamic libraries
+16636 INFO: Warnings written to /Users/vincenzodemaria/Desktop/QuizAlgo/PegasoQuiz/sorgenti/build/PegasoQuiz/warn-PegasoQuiz.txt
+16643 INFO: Graph cross-reference written to /Users/vincenzodemaria/Desktop/QuizAlgo/PegasoQuiz/sorgenti/build/PegasoQuiz/xref-PegasoQuiz.html
+16830 INFO: checking PYZ
+16830 INFO: Building PYZ because PYZ-00.toc is non existent
+16830 INFO: Building PYZ (ZlibArchive) /Users/vincenzodemaria/Desktop/QuizAlgo/PegasoQuiz/sorgenti/build/PegasoQuiz/PYZ-00.pyz
+17064 INFO: Building PYZ (ZlibArchive) /Users/vincenzodemaria/Desktop/QuizAlgo/PegasoQuiz/sorgenti/build/PegasoQuiz/PYZ-00.pyz completed successfully.
+17067 INFO: EXE target arch: arm64
+17067 INFO: Code signing identity: None
+17067 INFO: checking PKG
+17067 INFO: Building PKG because PKG-00.toc is non existent
+17067 INFO: Building PKG (CArchive) PegasoQuiz.pkg
+17084 INFO: Building PKG (CArchive) PegasoQuiz.pkg completed successfully.
+17085 INFO: Bootloader /opt/anaconda3/lib/python3.13/site-packages/PyInstaller/bootloader/Darwin-64bit/runw
+17085 INFO: checking EXE
+17085 INFO: Building EXE because EXE-00.toc is non existent
+17085 INFO: Building EXE from EXE-00.toc
+17085 INFO: Copying bootloader EXE to /Users/vincenzodemaria/Desktop/QuizAlgo/PegasoQuiz/sorgenti/build/PegasoQuiz/PegasoQuiz
+17086 INFO: Converting EXE to target arch (arm64)
+17108 INFO: Removing signature(s) from EXE
+17134 INFO: Modifying Mach-O image UUID(s) in EXE
+17137 INFO: Appending PKG archive to EXE
+17138 INFO: Fixing EXE headers for code signing
+17140 INFO: Rewriting the executable's macOS SDK version (15.5.0) to match the SDK version of the Python library (11.1.0) in order to avoid inconsistent behavior and potential UI issues in the frozen application.
+17141 INFO: Re-signing the EXE
+17159 INFO: Building EXE from EXE-00.toc completed successfully.
+17167 INFO: checking COLLECT
+17167 INFO: Building COLLECT because COLLECT-00.toc is non existent
+17167 INFO: Building COLLECT COLLECT-00.toc
+24810 INFO: Building COLLECT COLLECT-00.toc completed successfully.
+24833 INFO: checking BUNDLE
+24833 INFO: Building BUNDLE because BUNDLE-00.toc is non existent
+24833 INFO: Building BUNDLE BUNDLE-00.toc
+30325 INFO: Signing the BUNDLE...
+33417 INFO: Building BUNDLE BUNDLE-00.toc completed successfully.
+33433 INFO: Build complete! The results are available in: /Users/vincenzodemaria/Desktop/QuizAlgo/PegasoQuiz/sorgenti/dist
