@@ -2,7 +2,7 @@
 PegasoQuiz (nome di build: QuizNova) è un'applicazione desktop per la preparazione a test universitari tramite quiz a risposta multipla. Supporta caricamento da file JSON, URL remoti, PDF di dispense, e dataset cloud ospitati su GitHub/Supabase.
 L'applicazione è distribuita come bundle nativo macOS (.app) e HTML (ospitata in cloud su Vercel.com) e directory eseguibile multipiattaforma, prodotti tramite PyInstaller.
 
-# 1.1 Stack Tecnologico
+# Stack Tecnologico
 Linguaggio frontend QML
 Framework UI	PySide6 6.6+ (Qt 6) con QML / QtQuick
 Bundler	PyInstaller 6.18+
@@ -12,7 +12,7 @@ AI/LLM	OpenAI GPT-4o-mini (vision) — feature opzionale
 Repository cloud Github.com
 Estrazione PDF	pypdf 4+, pdfminer.six, Pillow 10+
 
-# 1.2 Struttura dei File Sorgenti
+# Struttura dei File Sorgenti
 File	                    Ruolo
 main_quiznova.py	        Entry point, bridge QML↔Python, worker thread pool
 quiznova_backend.py	      Backend: logica quiz, storage, cloud Supabase, AI
