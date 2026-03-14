@@ -1,4 +1,4 @@
-# PegasoQuiz_app1. Panoramica del Progetto
+# PegasoQuiz      Panoramica del Progetto
 PegasoQuiz (nome di build: QuizNova) è un'applicazione desktop per la preparazione a test universitari tramite quiz a risposta multipla. Supporta caricamento da file JSON, URL remoti, PDF di dispense, e dataset cloud ospitati su GitHub/Supabase.
 L'applicazione è distribuita come bundle nativo macOS (.app) e HTML (ospitata in cloud su Vercel.com) e directory eseguibile multipiattaforma, prodotti tramite PyInstaller.
 
