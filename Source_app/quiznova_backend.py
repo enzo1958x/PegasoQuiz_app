@@ -90,11 +90,12 @@ class _StorageManager:
 
     def _load_state(self) -> dict[str, Any]:
         if not STATE_FILE.exists():
-            return {"used": {}, "stats": [], "profiles": {}, "prefs": {}, "wrong": {}}
+            return {"used": {}, "pending": {}, "stats": [], "profiles": {}, "prefs": {}, "wrong": {}}
         try:
             data = json.loads(STATE_FILE.read_text(encoding="utf-8"))
             if isinstance(data, dict):
                 data.setdefault("used", {})
+                data.setdefault("pending", {})
                 data.setdefault("stats", [])
                 data.setdefault("prefs", {})
                 data.setdefault("profiles", {})
@@ -102,7 +103,7 @@ class _StorageManager:
                 return data
         except Exception:
             logger.warning("_load_state: lettura state.json fallita", exc_info=True)
-        return {"used": {}, "stats": [], "profiles": {}, "prefs": {}, "wrong": {}}
+        return {"used": {}, "pending": {}, "stats": [], "profiles": {}, "prefs": {}, "wrong": {}}
 
     def _save_state(self) -> None:
         with self._state_lock:
@@ -357,6 +358,11 @@ class QuizNovaBackend(_StorageManager, _CloudMixin, _QuizEngine):
         # ── indice lookup O(1) ────────────────────────────────────────────────
         self._item_index: dict[str, "QuizItem"] = {}
 
+        # Al riavvio, il pending è sempre sporco (quiz in corso interrotto).
+        # Lo azzeriamo subito: le domande non corrette tornano disponibili.
+        self._state["pending"] = {}
+        self._save_state()
+
     def _rebuild_item_index(self) -> None:
         """Ricostruisce l'indice di ricerca rapida dopo ogni cambio di dataset."""
         idx: dict[str, "QuizItem"] = {}
@@ -376,9 +382,15 @@ class QuizNovaBackend(_StorageManager, _CloudMixin, _QuizEngine):
 
     # ---------- utils ----------
     def _qid(self, it: QuizItem) -> str:
-        if it.id and not re.match(r"^Q\d+$", it.id):
-            return it.id
-        return "H" + self._hash(it.question.strip().lower())
+        raw_id = str(it.id or "").strip()
+        if raw_id and not re.match(r"^Q\d+$", raw_id):
+            return raw_id
+        # Hash basato sul testo della domanda + choices ordinate alfabeticamente:
+        # due domande con testo identico ma risposte diverse ottengono QID distinti.
+        # Le choices vengono ordinate per rendere l'hash stabile indipendentemente
+        # dallo shuffle effettuato al momento della generazione del quiz.
+        choices_key = "|".join(sorted(c.strip().lower() for c in it.choices))
+        return "H" + self._hash(it.question.strip().lower() + "\x00" + choices_key)
 
     def _dataset_hash(self) -> str:
         joined = "|".join(sorted(self._qid(i) + "#" + i.chapter for i in self.all_items))
@@ -419,6 +431,7 @@ class QuizNovaBackend(_StorageManager, _CloudMixin, _QuizEngine):
             "correctIndex": int(it.correct_index),
             "explanation": str(it.explanation or ""),
             "image_url":   str(it.image_url or ""),
+            "dataset": str(self.base_dataset_name or self.dataset_name or ""),
         }
 
     def _find_item_by_any_id(self, rid: str) -> QuizItem | None:
@@ -468,7 +481,33 @@ class QuizNovaBackend(_StorageManager, _CloudMixin, _QuizEngine):
 
     def _wrong_local_get(self) -> list[dict[str, Any]]:
         bucket = self._state.setdefault("wrong", {})
-        rows = bucket.get(self._wrong_dataset_key(), []) if isinstance(bucket, dict) else []
+        if not isinstance(bucket, dict):
+            return []
+        key = self._wrong_dataset_key()
+        rows = bucket.get(key, [])
+
+        # Migrazione: versioni precedenti salvavano il bacino errori usando il
+        # nome normalizzato del dataset come chiave (es. "corporate planning")
+        # invece dell'hash del contenuto (es. "e1e8241572b64614").
+        # Se la chiave hash non trova nulla, cerchiamo la chiave legacy per nome
+        # e la migriamo automaticamente alla nuova chiave.
+        if not rows:
+            legacy_key = self._norm_stats_name(
+                self.base_dataset_name or self.dataset_name or ""
+            )
+            if legacy_key and legacy_key != key:
+                legacy_rows = bucket.get(legacy_key, [])
+                if legacy_rows:
+                    bucket[key] = legacy_rows
+                    del bucket[legacy_key]
+                    self._save_state()
+                    logger.info(
+                        "_wrong_local_get: migrati %d record dal bacino errori "
+                        "dalla chiave legacy '%s' alla chiave '%s'",
+                        len(legacy_rows), legacy_key, key,
+                    )
+                    rows = legacy_rows
+
         return [dict(r) for r in rows if isinstance(r, dict)]
 
     def _wrong_local_set(self, rows: list[dict[str, Any]]) -> None:
@@ -575,7 +614,12 @@ class QuizNovaBackend(_StorageManager, _CloudMixin, _QuizEngine):
             return self._wrong_count_cache
         try:
             rows = self._wrong_read()
-            count = len(rows)
+            current_dataset = str(self.base_dataset_name or self.dataset_name or "")
+            count = sum(
+                1 for r in rows
+                if not str(r.get("dataset") or "").strip()
+                or str(r.get("dataset") or "").strip() == current_dataset
+            )
         except Exception:
             logger.warning("wrong_count: lettura bacino errori fallita", exc_info=True)
             count = max(0, self._wrong_count_cache)  # conserva l'ultimo valore noto
@@ -605,14 +649,29 @@ class QuizNovaBackend(_StorageManager, _CloudMixin, _QuizEngine):
             for it in correct_items:
                 correct_ids.add(self._qid(it))
 
-        # Parte dagli esistenti, rimuovendo quelli risposti correttamente
+        # Parte dagli esistenti, rimuovendo quelli risposti correttamente.
+        # I record senza campo "dataset" (versioni precedenti) vengono migrati
+        # al dataset corrente: è l'unico modo per associarli retrocompatibilmente.
+        current_dataset = str(self.base_dataset_name or self.dataset_name or "")
         merged: dict[str, dict[str, Any]] = {}
         for r in existing:
             q = self._normalize_item(r)
             if q is None:
                 continue
             if self._qid(q) not in correct_ids:
-                merged[self._qid(q)] = dict(r)
+                rec = dict(r)
+                if not str(rec.get("dataset") or "").strip():
+                    # Migrazione: assegna al dataset corrente solo se la domanda
+                    # appartiene al pool base corrente (evita di "rubare" errori
+                    # di altri dataset non ancora migrati).
+                    qid = self._qid(q)
+                    if qid in self._item_index or any(
+                        self._qid(b) == qid for b in (self.base_all_items or [])
+                    ):
+                        rec["dataset"] = current_dataset
+                    else:
+                        rec["dataset"] = "__unknown__"
+                merged[self._qid(q)] = rec
 
         # Aggiunge/aggiorna quelli sbagliati
         for it in wrong_items:
@@ -680,10 +739,14 @@ class QuizNovaBackend(_StorageManager, _CloudMixin, _QuizEngine):
         """
         rows: list[dict[str, Any]] = []
         rows = self._wrong_read()
+        current_dataset = str(self.base_dataset_name or self.dataset_name or "")
 
         out: list[dict[str, Any]] = []
         for r in rows:
             if not isinstance(r, dict):
+                continue
+            rec_dataset = str(r.get("dataset") or "").strip()
+            if rec_dataset and rec_dataset != current_dataset:
                 continue
             rr = self._coerce_wrong_row(r)
             q = self._normalize_item(rr)
@@ -805,7 +868,14 @@ class QuizNovaBackend(_StorageManager, _CloudMixin, _QuizEngine):
             return False, f"Errore lettura errori: {e}"
         items: list[QuizItem] = []
         valid_raw: list[dict[str, Any]] = []
+        current_dataset = str(self.base_dataset_name or self.dataset_name or "")
         for r in raw:
+            # Filtra per dataset corrente: ignora errori di altri dataset.
+            # I record senza campo "dataset" (versioni precedenti) vengono
+            # inclusi per retrocompatibilità.
+            rec_dataset = str(r.get("dataset") or "").strip()
+            if rec_dataset and rec_dataset != current_dataset:
+                continue
             it = self._normalize_item(r)
             if it is None:
                 continue
@@ -822,6 +892,8 @@ class QuizNovaBackend(_StorageManager, _CloudMixin, _QuizEngine):
         self.last_pool_total = len(items)
         self.last_pool_used = 0
         self._rebuild_item_index()
+        # Invalida la cache del contatore così wrong_count() rilegge il dato aggiornato
+        self.invalidate_wrong_count_cache()
         return True, f"Modalità errori attiva ✓ ({len(items)} quiz)"
 
     def load_base_mode(self) -> tuple[bool, str]:
@@ -1063,10 +1135,15 @@ class QuizNovaBackend(_StorageManager, _CloudMixin, _QuizEngine):
 
     def _sync_pool_counter(self, chapters: list[str]) -> None:
         pool = [i for i in self.all_items if i.chapter in chapters]
-        used_ids = set(self._state["used"].get(self._used_key(chapters), []))
         pool_ids = {self._qid(i) for i in pool}
+        key = self._used_key(chapters)
+        used_ids = set(self._state["used"].get(key, []))
+        pending_ids = set(self._state["pending"].get(key, []))
+        # Somma used + pending: entrambi contribuiscono al contatore "impegnate"
+        # Interseca con pool_ids per escludere ID obsoleti di altri dataset
+        committed = (used_ids | pending_ids).intersection(pool_ids)
         self.last_pool_total = len(pool)
-        self.last_pool_used = len(pool_ids.intersection(used_ids))
+        self.last_pool_used = len(committed)
 
     # ---------- load ----------
     def _extract_choices_and_correct(self, row: dict[str, Any]) -> tuple[list[str], int | None]:
@@ -1135,7 +1212,13 @@ class QuizNovaBackend(_StorageManager, _CloudMixin, _QuizEngine):
             correct_index=ci,
             chapter=str(row.get("chapter", row.get("capitolo", row.get("lezione", "Generale"))) or "").strip() or "Generale",
             explanation=str(row.get("explanation", row.get("spiegazione", "")) or "").strip(),
-            image_url=str(row.get("image_url", "") or "").strip(),
+            image_url=str(
+                row.get("image_url")
+                or row.get("img_domanda")
+                or row.get("img")
+                or row.get("image")
+                or ""
+            ).strip(),
         )
 
     def load_from_payload(self, payload: Any, dataset_name: str) -> tuple[bool, str]:
@@ -1174,6 +1257,44 @@ class QuizNovaBackend(_StorageManager, _CloudMixin, _QuizEngine):
             payload = json.loads(p.read_text(encoding="utf-8"))
         except Exception as e:
             return False, f"Errore lettura file: {e}"
+
+        # Risolvi path relativi delle immagini in URI assoluti (file:///).
+        # Supporta img_domanda, image_url, img, image.
+        # Cerca prima relativo alla cartella del JSON, poi alla cartella padre
+        # (es. PegasoQuiz/ quando il JSON è in PegasoQuiz/JSON/).
+        base_dir = p.parent          # es. .../PegasoQuiz/JSON/
+        project_dir = base_dir.parent  # es. .../PegasoQuiz/
+        items_list: list = payload if isinstance(payload, list) else []
+        if isinstance(payload, dict):
+            for _k in ("questions", "items", "domande", "quiz", "data"):
+                if isinstance(payload.get(_k), list):
+                    items_list = payload[_k]
+                    break
+        _IMG_KEYS = ("image_url", "img_domanda", "img", "image")
+        for row in items_list:
+            if not isinstance(row, dict):
+                continue
+            for img_key in _IMG_KEYS:
+                v = str(row.get(img_key) or "").strip()
+                if not v or v.startswith(("http://", "https://", "file://")):
+                    continue
+                # Cerca il file: relativo a JSON/, poi relativo a PegasoQuiz/
+                resolved = False
+                for base in (base_dir, project_dir):
+                    candidate = (base / v).resolve()
+                    if candidate.exists():
+                        row[img_key] = candidate.as_uri()
+                        resolved = True
+                        break
+                if not resolved:
+                    # Ultimo tentativo: solo il nome file dentro Images/
+                    fname = Path(v).name
+                    for images_dir in ("Images", "images", "img", "Img"):
+                        fallback = project_dir / images_dir / fname
+                        if fallback.exists():
+                            row[img_key] = fallback.resolve().as_uri()
+                            break
+
         ok, msg = self.load_from_payload(payload, p.name)
         if ok:
             self.current_source_mode = "local"
@@ -2158,22 +2279,71 @@ class QuizNovaBackend(_StorageManager, _CloudMixin, _QuizEngine):
         if not pool:
             return False, "Nessuna domanda nel bacino selezionato"
         if self.is_wrong_mode:
+            # Ricarica sempre il bacino errori dal file prima di generare:
+            # correct_all può aver rimosso domande dal file tra una sessione
+            # e l'altra, ma all_items è ancora la vecchia versione in memoria.
+            try:
+                fresh_raw = self._wrong_read()
+                current_dataset = str(self.base_dataset_name or self.dataset_name or "")
+                fresh_items = [
+                    it for r in fresh_raw
+                    if (not str(r.get("dataset") or "").strip()
+                        or str(r.get("dataset") or "").strip() == current_dataset)
+                    and (it := self._normalize_item(r)) is not None
+                ]
+                if fresh_items:
+                    self.all_items = fresh_items
+                    self.selected_chapters = sorted({i.chapter for i in fresh_items}, key=self._chapter_sort_key)
+                    self._rebuild_item_index()
+                    # Ricalcola pool con gli item aggiornati
+                    pool = [i for i in self.all_items if i.chapter in self.selected_chapters]
+            except Exception:
+                pass  # usa all_items già in memoria come fallback
             source = pool
             used_ids = set()
         else:
             used_key = self._used_key(self.selected_chapters)
-            used_ids = set(self._state["used"].get(used_key, []))
-            available = [i for i in pool if self._qid(i) not in used_ids]
+            pool_ids = {self._qid(i) for i in pool}
+            used_ids = set(self._state["used"].get(used_key, [])).intersection(pool_ids)
+            # "pending": domande estratte in una sessione non ancora corretta.
+            # Vengono escluse dal bacino disponibile esattamente come le "used",
+            # ma vengono cancellate se l'utente esce senza correggere (non bruciate).
+            pending_ids = set(self._state["pending"].get(used_key, [])).intersection(pool_ids)
+            excluded = used_ids | pending_ids
+            available = [i for i in pool if self._qid(i) not in excluded]
             source = available if available else pool
-            if not available and used_ids:
-                # refill automatico, ma il contatore resta aggiornato solo dopo correzione
+            if not available and (used_ids or pending_ids):
+                # Refill: azzera sia used che pending per questo bacino
                 self._state["used"][used_key] = []
+                self._state["pending"][used_key] = []
+                used_ids = set()
+                pending_ids = set()
                 self._save_state()
-        n = max(1, min(int(count), len(source)))
+        # Se le domande disponibili sono meno di count (es. ultime 12 di 162
+        # con count=10), usa tutte le rimanenti anziché fermarsi a count.
+        # Questo evita che l'ultimo questionario sia sempre più corto del previsto.
+        effective_count = len(source) if 0 < len(source) < int(count) else int(count)
+        n = max(1, min(effective_count, len(source)))
         if self.use_percent_mode:
             picked = self.pick_by_percent(source, n, self.get_percent_map())
         else:
             picked = random.sample(source, n)
+
+        # Salva immediatamente le domande estratte come "pending".
+        # Prima azzera il pending del quiz precedente (se l'utente ha generato
+        # un nuovo quiz senza correggere il precedente): i current_items
+        # precedenti tornano disponibili, i nuovi vengono prenotati.
+        if not self.is_wrong_mode:
+            pending_key = self._used_key(self.selected_chapters)
+            # Azzera il pending del quiz precedente non corretto (current_items
+            # contiene item shuffled il cui _qid non corrisponde a quello salvato).
+            pending_now = set()   # riparte da zero: il vecchio pending è obsoleto
+            # Aggiungi le nuove domande estratte
+            for it in picked:
+                pending_now.add(self._qid(it))
+            self._state["pending"][pending_key] = sorted(pending_now)
+            self._save_state()
+            self._sync_pool_counter(self.selected_chapters)
 
         # Shuffle le scelte di ogni domanda una volta sola al momento della
         # generazione, aggiornando correct_index di conseguenza.
@@ -2196,6 +2366,15 @@ class QuizNovaBackend(_StorageManager, _CloudMixin, _QuizEngine):
         return True, f"Questionario generato: {n} domande"
 
     def clear_quiz(self) -> tuple[bool, str]:
+        # L'utente esce senza correggere: azzera il pending per la chiave
+        # corrente così le domande tornano disponibili.
+        # NON si usa discard per ID perché current_items contiene item shuffled
+        # (choices rimescolate) il cui _qid differisce dall'originale salvato.
+        if not self.is_wrong_mode and self.selected_chapters:
+            used_key = self._used_key(self.selected_chapters)
+            self._state["pending"][used_key] = []
+            self._save_state()
+            self._sync_pool_counter(self.selected_chapters)
         self.current_items = []
         return True, "Questionario chiuso"
 
@@ -2254,13 +2433,17 @@ class QuizNovaBackend(_StorageManager, _CloudMixin, _QuizEngine):
 
         pct = round((correct / max(1, total)) * 100)
 
-        # update used pool ONLY on completed correction (base mode)
+        # Correzione completata: sposta le domande da "pending" a "used" e
+        # svuota il pending. Solo in modalità base (not wrong_mode).
         if not self.is_wrong_mode:
             used_key = self._used_key(self.selected_chapters)
             used_ids = set(self._state["used"].get(used_key, []))
             for it in self.current_items:
                 used_ids.add(self._qid(it))
             self._state["used"][used_key] = sorted(used_ids)
+            # Correzione completata: azzera tutto il pending per questa chiave.
+            # Le domande corrette sono già in used; nessun quiz è più in sospeso.
+            self._state["pending"][used_key] = []
 
         row = {
             "id": "L" + self._hash(datetime.now().isoformat() + self.dataset_name + str(total) + str(correct)),
@@ -2274,7 +2457,13 @@ class QuizNovaBackend(_StorageManager, _CloudMixin, _QuizEngine):
             "note": "",
             "snapshot": detail,
         }
-        self.save_wrong_questions(wrong_items, correct_items=correct_items if self.is_wrong_mode else None)
+        self.save_wrong_questions(wrong_items, correct_items=correct_items if self.is_wrong_mode else correct_items)
+
+        # In modalità errori, aggiorna last_pool_total col conteggio reale
+        # così l'UI riflette subito lo svuotamento del bacino
+        if self.is_wrong_mode:
+            self.last_pool_total = self.wrong_count()
+            self.last_pool_used = 0
 
         if self._cloud_state_enabled():
             try:
@@ -2310,6 +2499,7 @@ class QuizNovaBackend(_StorageManager, _CloudMixin, _QuizEngine):
             return False, "Seleziona almeno un capitolo"
         key = self._used_key(self.selected_chapters)
         self._state["used"][key] = []
+        self._state["pending"][key] = []
         self._save_state()
         self._sync_pool_counter(self.selected_chapters)
         return True, "Bacino resettato"

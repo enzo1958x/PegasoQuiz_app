@@ -53,6 +53,7 @@ import base64
 import json
 import logging
 import difflib
+import os
 import random
 import re
 import time
@@ -353,35 +354,89 @@ def _save_chunk_images(
 # FASE 5 — chiamata GPT-4o-mini (testo + vision)
 # ═════════════════════════════════════════════════════════════════════════════
 
-_SYSTEM_PROMPT = (
-    "Sei un professore universitario esperto nella creazione di quiz accademici. "
-    "Generi domande a risposta multipla chiare e pedagogicamente valide "
-    "basandoti ESCLUSIVAMENTE sul materiale fornito. "
+# ── Prompt: caricamento da file esterno con fallback inline ───────────────────
+#
+# Percorso ricercato (in ordine):
+#   1. $QUIZNOVA_PROMPT_FILE  (variabile d'ambiente, percorso assoluto)
+#   2. ~/.quiznova/prompts.toml
+#   3. <directory di questo file>/prompts.toml
+#
+# Formato prompts.toml:
+#   [quiz]
+#   system = "..."
+#   user   = "..."   # usa {n}, {chapter}, {image_uris_list}, {text} come placeholder
+#
+# Se il file non esiste o è malformato, vengono usati i prompt inline qui sotto.
+
+_PROMPT_SEARCH_PATHS: list[Path] = [
+    *(
+        [Path(os.environ["QUIZNOVA_PROMPT_FILE"])]
+        if os.environ.get("QUIZNOVA_PROMPT_FILE")
+        else []
+    ),
+    Path.home() / ".quiznova" / "prompts.toml",
+    Path(__file__).parent / "prompts.toml",
+]
+
+_FALLBACK_SYSTEM_PROMPT = (
+    "Sei un professore universitario che prepara esami scritti di alto livello. "
+    "Il tuo obiettivo è verificare la comprensione profonda, non la memoria meccanica. "
     "Rispondi SOLO con un array JSON valido, zero testo fuori dall'array."
 )
 
-_USER_PROMPT = """\
+_FALLBACK_USER_PROMPT = """\
 Dal materiale seguente genera esattamente {n} domande a risposta multipla in italiano.
 
-REGOLE:
-- Esattamente 4 scelte in formato testuale; UNA sola risposta deve terminare con " §§§[OK]"
+═══ QUALITÀ DELLE DOMANDE ═══
+
+Tipologie preferite (varia tra di esse):
+- Applicazione: "In quale situazione X è preferibile a Y?"
+- Meccanismo: "Perché il parametro X influenza Y in questo modo?"
+- Confronto: "Qual è la differenza fondamentale tra X e Y?"
+- Conseguenza: "Se X aumenta, cosa succede a Y e perché?"
+- Eccezione: "In quale condizione la regola X non vale?"
+Evita domande puramente definitorie ("Cos'è X?") a meno che la definizione sia non ovvia.
+
+═══ QUALITÀ DEI DISTRATTORI ═══
+
+I 3 distrattori devono essere:
+- Plausibili: usano la terminologia corretta del dominio e sembrano ragionevoli
+- Specifici: mai risposte generiche come "Nessuna delle precedenti", "Dipende dal contesto",
+  "Non è rilevante", "Aumenta la complessità", "Riduce le prestazioni" senza dettaglio
+- Differenziati tra loro: non varianti della stessa idea sbagliata
+- Ancorati al testo: idealmente confondono concetti che appaiono nello stesso paragrafo
+  (errori classici che uno studente potrebbe fare leggendo superficialmente)
+
+Esempi di distrattori VIETATI (troppo facili o generici):
+  ✗ "Nessuna delle precedenti"   ✗ "Non è rilevante"   ✗ "Dipende"
+  ✗ "Aumenta il costo"          ✗ "Migliora le prestazioni"   ✗ "Estetica"
+
+═══ REGOLE FORMALI ═══
+
+- Esattamente 4 scelte; le scelte NON devono contenere tag o marcatori
+- "correct_index" è l'indice (0–3) della scelta corretta
+- Varia la posizione della risposta corretta: non sempre 0, non sempre ultima
 - Domande su concetti DIVERSI, nessuna ripetizione
-- Le domande devono essere testuali e autosufficienti (nessun riferimento a immagini/figure/grafici).\n- Vietato usare placeholder o testi fittizi (es. "Placeholder", "Lorem ipsum", "[...]").\n- chapter deve essere: "{chapter}"
-- image_url: lascia sempre stringa vuota "" (NON inserire percorsi immagini)
+- Domande testuali e autosufficienti (no riferimenti a figure/grafici/tabelle)
+- Vietato usare placeholder (es. "Lorem ipsum", "[...]")
+- chapter: "{chapter}" — image_url: sempre ""
+- L'explanation (2-3 frasi) deve spiegare perché la scelta corretta è giusta
+  E brevemente perché almeno uno dei distrattori principali è sbagliato
 
 FORMATO — array JSON puro, NIENTE markdown, NIENTE testo fuori:
 [
   {{
-    "question":    "Testo della domanda?",
-    "chapter":     "{chapter}",
-    "image_url":   "",
+    "question":      "Domanda articolata che richiede ragionamento?",
+    "chapter":       "{chapter}",
+    "image_url":     "",
+    "correct_index": 2,
     "choices": [
-      "Risposta A",
-      "Risposta B §§§[OK]",
-      "Risposta C",
-      "Risposta D"
+      "Distrattore plausibile che confonde concetto A con B",
+      "Distrattore plausibile che inverte causa ed effetto",
+      "Risposta corretta con terminologia precisa",
+      "Distrattore plausibile che generalizza troppo"
     ],
-    "explanation": "Spiegazione breve della risposta corretta."
+    "explanation": "La risposta corretta è C perché [meccanismo specifico]. Il distrattore A è errato perché [motivo preciso]."
   }}
 ]
 
@@ -390,6 +445,57 @@ PERCORSI IMMAGINI DISPONIBILI PER QUESTO CAPITOLO:
 
 TESTO:
 {text}"""
+
+
+def _load_prompts() -> tuple[str, str]:
+    """Carica system e user prompt da file TOML esterno.
+
+    Cerca in ordine: $QUIZNOVA_PROMPT_FILE → ~/.quiznova/prompts.toml
+    → <dir modulo>/prompts.toml.  Se nessun file è trovato o è malformato,
+    restituisce i prompt inline (_FALLBACK_*).
+
+    Returns:
+        (system_prompt, user_prompt)
+    """
+    for path in _PROMPT_SEARCH_PATHS:
+        if not path.exists():
+            continue
+        try:
+            import tomllib  # Python 3.11+
+        except ImportError:
+            try:
+                import tomli as tomllib  # type: ignore[no-redef]
+            except ImportError:
+                logger.warning(
+                    "prompts.toml trovato in %s ma tomllib/tomli non disponibile "
+                    "(richiede Python 3.11+ o pip install tomli). Uso prompt inline.",
+                    path,
+                )
+                return _FALLBACK_SYSTEM_PROMPT, _FALLBACK_USER_PROMPT
+
+        try:
+            data = tomllib.loads(path.read_text(encoding="utf-8"))
+            section = data.get("quiz", {})
+            system = str(section.get("system", "")).strip()
+            user   = str(section.get("user",   "")).strip()
+            if not system or not user:
+                logger.warning(
+                    "prompts.toml in %s: sezione [quiz] incompleta (system=%s, user=%s). "
+                    "Uso prompt inline.",
+                    path, bool(system), bool(user),
+                )
+                return _FALLBACK_SYSTEM_PROMPT, _FALLBACK_USER_PROMPT
+            logger.info("Prompt caricati da %s", path)
+            return system, user
+        except Exception as e:
+            logger.warning("Errore lettura prompts.toml (%s): %s. Uso prompt inline.", path, e)
+            return _FALLBACK_SYSTEM_PROMPT, _FALLBACK_USER_PROMPT
+
+    logger.debug("Nessun prompts.toml trovato — uso prompt inline.")
+    return _FALLBACK_SYSTEM_PROMPT, _FALLBACK_USER_PROMPT
+
+
+_SYSTEM_PROMPT, _USER_PROMPT = _load_prompts()
 
 
 # Codici HTTP OpenAI considerati transienti (meritano retry)
@@ -671,7 +777,13 @@ def _validate_and_enrich(
     raw: Any,
     image_uris: list[str],
 ) -> dict[str, Any] | None:
-    """Valida l'item e assegna image_url se mancante ma implicito."""
+    """Valida l'item e assegna image_url se mancante ma implicito.
+
+    Ordine di priorità per determinare la risposta corretta:
+      1. Campo ``correct_index`` (intero 0-3) — nuovo formato prompt
+      2. Marker ``§§§[OK]`` inline nelle scelte — formato legacy / fallback
+      3. Campi alternativi ``correctIndex`` / ``answerIndex``
+    """
     if not isinstance(raw, dict):
         return None
     question = str(raw.get("question") or "").strip()
@@ -690,7 +802,7 @@ def _validate_and_enrich(
         return None
 
     parsed_choices: list[str] = []
-    correct_idx: int | None = None
+    marker_correct_idx: int | None = None  # da §§§[OK] inline
     seen_choice = set()
 
     for i, c in enumerate(choices):
@@ -717,25 +829,43 @@ def _validate_and_enrich(
         parsed_choices.append(txt)
 
         if is_ok:
-            if correct_idx is not None:
-                return None
-            correct_idx = i
+            if marker_correct_idx is not None:
+                return None  # piu di un §§§[OK]: item malformato
+            marker_correct_idx = i
 
-    if correct_idx is None:
-        ci = raw.get("correctIndex", raw.get("correct_index", raw.get("answerIndex", raw.get("risposta_corretta"))))
-        if ci is not None:
-            try:
-                ci_int = int(ci)
-                if 0 <= ci_int < len(parsed_choices):
-                    correct_idx = ci_int
-            except Exception:
-                pass
+    # --- Determinazione correct_idx con priorità ---
+    correct_idx: int | None = None
+
+    # 1. Campo esplicito correct_index dal nuovo prompt (priorità massima)
+    ci_field = raw.get("correct_index", raw.get("correctIndex", raw.get("answerIndex", raw.get("risposta_corretta"))))
+    if ci_field is not None:
+        try:
+            ci_int = int(ci_field)
+            if 0 <= ci_int < len(parsed_choices):
+                correct_idx = ci_int
+        except (TypeError, ValueError):
+            pass
+
+    # 2. Marker §§§[OK] inline — usato se correct_index non disponibile
+    if correct_idx is None and marker_correct_idx is not None:
+        correct_idx = marker_correct_idx
 
     if correct_idx is None:
         return None
 
+    # Sanity check soft: logga se l'explanation non menziona termini della scelta corretta
+    explanation = str(raw.get("explanation") or "").strip()
+    correct_text = parsed_choices[correct_idx].lower()
+    expl_lower = explanation.lower()
+    correct_tokens = [t for t in correct_text.split() if len(t) >= 5]
+    if correct_tokens and not any(t in expl_lower for t in correct_tokens):
+        logger.debug(
+            "Possibile mismatch correct_index/explanation per domanda: '%s' "
+            "(correct_index=%d -> '%s')", question[:60], correct_idx, correct_text
+        )
+
     legacy_choices = [
-        (txt + " §§§[OK]") if i == int(correct_idx) else txt
+        (txt + " §§§[OK]") if i == correct_idx else txt
         for i, txt in enumerate(parsed_choices)
     ]
 
@@ -751,7 +881,7 @@ def _validate_and_enrich(
         "chapter":     str(raw.get("chapter") or "Generale").strip() or "Generale",
         "image_url":   image_url,
         "choices":     legacy_choices,
-        "explanation": str(raw.get("explanation") or "").strip(),
+        "explanation": explanation,
     }
 
 

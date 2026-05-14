@@ -38,6 +38,7 @@ block_cipher = None
 
 datas = [
     (str(PROJECT_DIR / "Main.qml"), "."),
+    (str(PROJECT_DIR / "help.html"), "."),
     (str(PROJECT_DIR.parent / "images"), "images"),
 ]
 

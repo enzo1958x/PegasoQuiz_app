@@ -8,7 +8,7 @@ ApplicationWindow {
     width: 1360
     height: 900
     visible: true
-    visibility: Window.FullScreen
+    visibility: Window.Maximized
     title: "Questionario"
     color: "#eef2ff"
 
@@ -175,6 +175,8 @@ ApplicationWindow {
     Shortcut { sequence: "E,N,Z,O"; onActivated: easterDialog.open() }
     Shortcut { sequence: "Ctrl+Shift+E"; onActivated: easterDialog.open() }
     Shortcut { sequence: "Alt+Shift+E"; onActivated: easterDialog.open() }
+    Shortcut { sequence: "Ctrl+F"; onActivated: root.visibility === Window.FullScreen ? root.visibility = Window.Maximized : root.visibility = Window.FullScreen }
+    Shortcut { sequence: "F1";  onActivated: helpDialog.open() }
 
     Connections {
         target: quizBridge
@@ -482,6 +484,36 @@ ApplicationWindow {
                         fillMode: Image.PreserveAspectFit
                         smooth: true
                         mipmap: true
+                    }
+                }
+
+                // Pulsanti finestra — solo Windows
+                ColumnLayout {
+                    visible: Qt.platform.os === "windows"
+                    Layout.alignment: Qt.AlignTop
+                    Layout.preferredWidth: 32
+                    spacing: 4
+                    Rectangle {
+                        width: 28; height: 28; radius: 6
+                        color: _wMin.containsMouse ? "#dfe7ff" : "transparent"
+                        border.color: _wMin.containsMouse ? "#c7d2fe" : "transparent"
+                        Text { anchors.centerIn: parent; text: "\u2014"; font.pixelSize: 14; font.bold: true; color: "#334155" }
+                        MouseArea { id: _wMin; anchors.fill: parent; hoverEnabled: true; onClicked: root.showMinimized() }
+                    }
+                    Rectangle {
+                        width: 28; height: 28; radius: 6
+                        color: _wMax.containsMouse ? "#dfe7ff" : "transparent"
+                        border.color: _wMax.containsMouse ? "#c7d2fe" : "transparent"
+                        Text { anchors.centerIn: parent; text: root.visibility === Window.Maximized ? "\u2750" : "\u25a1"; font.pixelSize: 13; font.bold: true; color: "#334155" }
+                        MouseArea { id: _wMax; anchors.fill: parent; hoverEnabled: true
+                            onClicked: root.visibility === Window.Maximized ? root.showNormal() : root.showMaximized() }
+                    }
+                    Rectangle {
+                        width: 28; height: 28; radius: 6
+                        color: _wClose.containsMouse ? "#ef4444" : "transparent"
+                        border.color: _wClose.containsMouse ? "#dc2626" : "transparent"
+                        Text { anchors.centerIn: parent; text: "\u2715"; font.pixelSize: 13; font.bold: true; color: _wClose.containsMouse ? "#ffffff" : "#334155" }
+                        MouseArea { id: _wClose; anchors.fill: parent; hoverEnabled: true; onClicked: Qt.quit() }
                     }
                 }
             }
@@ -1028,6 +1060,8 @@ ApplicationWindow {
                         ScrollBar.vertical.policy: ScrollBar.AlwaysOn
                         ScrollBar.horizontal.policy: ScrollBar.AsNeeded
 
+
+
                         Column {
                             width: (quizScroll.availableWidth && quizScroll.availableWidth > 0) ? quizScroll.availableWidth - 10 : (quizScroll.width > 0 ? quizScroll.width - 10 : 900)
                             spacing: 8
@@ -1325,6 +1359,18 @@ ApplicationWindow {
                     font.pixelSize: 15
                     verticalAlignment: Text.AlignVCenter
                     elide: Text.ElideRight
+                }
+
+                FancyButton {
+                    text: "?"
+                    Layout.preferredHeight: 40
+                    Layout.preferredWidth: 40
+                    Layout.minimumWidth: 40
+                    Layout.maximumWidth: 40
+                    Layout.fillWidth: false
+                    font.pixelSize: 18
+                    font.bold: true
+                    onClicked: helpDialog.open()
                 }
 
                 FancyButton {
@@ -2276,5 +2322,56 @@ ApplicationWindow {
             }
         }
 
+        // ── Dialog Help ───────────────────────────────────────────────────────
+        Dialog {
+            id: helpDialog
+            modal: true
+            anchors.centerIn: Overlay.overlay
+            width: Math.min(root.width - 60, 760)
+            height: Math.min(root.height - 60, 720)
+            standardButtons: Dialog.NoButton
+            background: Rectangle { radius: 14; color: "#ffffff"; border.width: 1; border.color: "#c7d2fe" }
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 16
+                spacing: 10
+                RowLayout {
+                    Layout.fillWidth: true
+                    Text { text: "Guida"; font.pixelSize: 24; font.bold: true; color: "#1b2d2b" }
+                    Item { Layout.fillWidth: true }
+                    Text { text: "F1  per aprire / chiudere"; font.pixelSize: 12; color: "#586765" }
+                }
+                ScrollView {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    clip: true
+                    ScrollBar.vertical.policy: ScrollBar.AlwaysOn
+                    ScrollBar.horizontal.policy: ScrollBar.AsNeeded
+                    Text {
+                        id: helpBody
+                        width: parent.width - 24
+                        wrapMode: Text.WordWrap
+                        textFormat: Text.RichText
+                        font.pixelSize: 13
+                        color: "#1f2937"
+                        padding: 16
+                        text: helpLoader.helpText
+                        onLinkActivated: Qt.openUrlExternally(link)
+                    }
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    Item { Layout.fillWidth: true }
+                    FancyButton { text: "Chiudi"; onClicked: helpDialog.close() }
+                }
+            }
+        }
+
+    }
+
+    // ── Loader testo help — letto direttamente da Python ────────────────────
+    QtObject {
+        id: helpLoader
+        property string helpText: quizBridge.helpFileContent
     }
 }

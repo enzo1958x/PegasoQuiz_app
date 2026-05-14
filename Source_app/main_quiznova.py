@@ -479,6 +479,24 @@ class QuizNovaBridge(QObject):
     def wrongPayloadJson(self) -> str:
         return self._wrong_payload_json
 
+    @Property(str, constant=True)
+    def helpFileContent(self) -> str:
+        """Legge help.html e restituisce il contenuto come stringa HTML — funziona nel bundle PyInstaller."""
+        base = Path(__file__).resolve().parent
+        candidates = [
+            base / "help.html",
+            base.parent / "Resources" / "help.html",
+            base.parent / "help.html",
+            Path(__file__).resolve().parent.parent / "help.html",
+        ]
+        for p in candidates:
+            if p.exists():
+                try:
+                    return p.read_text(encoding="utf-8")
+                except Exception:
+                    continue
+        return "<b>File help.html non trovato.</b><br>Cercato in:<br>" + "<br>".join(str(p) for p in candidates)
+
     # ── Slot: caricamento dataset (async) ─────────────────────────────────────
 
     @Slot(str)
@@ -638,7 +656,12 @@ class QuizNovaBridge(QObject):
     def clearQuiz(self) -> None:
         _, msg = self.backend.clear_quiz()
         self._quiz_json = "[]"
+        # Aggiorna il contatore pool: clear_quiz rimuove il pending,
+        # quindi last_pool_used torna al valore precedente la generazione.
+        self._pool_used = int(self.backend.last_pool_used)
+        self._pool_total = int(self.backend.last_pool_total)
         self.quizChanged.emit()
+        self.poolChanged.emit()
         self._set_status(msg)
 
     @Slot()

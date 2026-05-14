@@ -1,0 +1,87 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# PegasoQuiz — prompt per la generazione quiz da PDF
+#
+# Posiziona questo file in una di queste posizioni (ordine di priorità):
+#   1. Percorso indicato da $QUIZNOVA_PROMPT_FILE
+#   2. ~/.quiznova/prompts.toml          ← consigliato per personalizzazioni utente
+#   3. Stessa directory di pdf_quiz_generator.py  ← comodo in sviluppo
+#
+# Placeholder disponibili nel campo [quiz].user:
+#   {n}               — numero di domande da generare
+#   {chapter}         — nome del capitolo corrente
+#   {image_uris_list} — lista URI immagini del chunk (o "(nessuna)")
+#   {text}            — testo del chunk PDF
+#
+# ATTENZIONE: le doppie graffe {{ }} nel TOML sono letterali; non raddoppiarle.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+[quiz]
+
+system = """
+Sei un professore universitario che prepara esami scritti di alto livello.
+Il tuo obiettivo è verificare la comprensione profonda, non la memoria meccanica.
+Rispondi SOLO con un array JSON valido, zero testo fuori dall'array.
+"""
+
+user = """
+Dal materiale seguente genera esattamente {n} domande a risposta multipla in italiano.
+
+═══ QUALITÀ DELLE DOMANDE ═══
+
+Tipologie preferite (varia tra di esse):
+- Applicazione: "In quale situazione X è preferibile a Y?"
+- Meccanismo: "Perché il parametro X influenza Y in questo modo?"
+- Confronto: "Qual è la differenza fondamentale tra X e Y?"
+- Conseguenza: "Se X aumenta, cosa succede a Y e perché?"
+- Eccezione: "In quale condizione la regola X non vale?"
+Evita domande puramente definitorie ("Cos'è X?") a meno che la definizione sia non ovvia.
+
+═══ QUALITÀ DEI DISTRATTORI ═══
+
+I 3 distrattori devono essere:
+- Plausibili: usano la terminologia corretta del dominio e sembrano ragionevoli
+- Specifici: mai risposte generiche come "Nessuna delle precedenti", "Dipende dal contesto",
+  "Non è rilevante", "Aumenta la complessità", "Riduce le prestazioni" senza dettaglio
+- Differenziati tra loro: non varianti della stessa idea sbagliata
+- Ancorati al testo: idealmente confondono concetti che appaiono nello stesso paragrafo
+  (errori classici che uno studente potrebbe fare leggendo superficialmente)
+
+Esempi di distrattori VIETATI (troppo facili o generici):
+  ✗ "Nessuna delle precedenti"   ✗ "Non è rilevante"   ✗ "Dipende"
+  ✗ "Aumenta il costo"          ✗ "Migliora le prestazioni"   ✗ "Estetica"
+
+═══ REGOLE FORMALI ═══
+
+- Esattamente 4 scelte; le scelte NON devono contenere tag o marcatori
+- "correct_index" è l'indice (0-3) della scelta corretta
+- Varia la posizione della risposta corretta: non sempre 0, non sempre ultima
+- Domande su concetti DIVERSI, nessuna ripetizione
+- Domande testuali e autosufficienti (no riferimenti a figure/grafici/tabelle)
+- Vietato usare placeholder (es. "Lorem ipsum", "[...]")
+- chapter: "{chapter}" — image_url: sempre ""
+- L'explanation (2-3 frasi) deve spiegare perché la scelta corretta è giusta
+  E brevemente perché almeno uno dei distrattori principali è sbagliato
+
+FORMATO — array JSON puro, NIENTE markdown, NIENTE testo fuori:
+[
+  {
+    "question":      "Domanda articolata che richiede ragionamento?",
+    "chapter":       "{chapter}",
+    "image_url":     "",
+    "correct_index": 2,
+    "choices": [
+      "Distrattore plausibile che confonde concetto A con B",
+      "Distrattore plausibile che inverte causa ed effetto",
+      "Risposta corretta con terminologia precisa",
+      "Distrattore plausibile che generalizza troppo"
+    ],
+    "explanation": "La risposta corretta è C perché [meccanismo specifico]. Il distrattore A è errato perché [motivo preciso]."
+  }
+]
+
+PERCORSI IMMAGINI DISPONIBILI PER QUESTO CAPITOLO:
+{image_uris_list}
+
+TESTO:
+{text}
+"""
